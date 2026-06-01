@@ -1,0 +1,39 @@
+/*
+ * static/css/style.css - 自定义样式
+ * ============================================
+ * 【层】表示层（Web 界面）
+ * 【说明】全局样式，Bootstrap 5 补充样式。
+ *        响应式布局适配不同 PC 分辨率。
+ * 【负责人】Web界面模块开发人员
+ */
+
+/* 全局布局 */
+body {
+    background-color: #f8f9fa;
+}
+
+/* 卡片阴影 */
+.card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    border: none;
+}
+
+/* 卡片标题 */
+.card-header {
+    font-size: 1.1rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+/* 预览表格滚动 */
+.table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* 【待实现】可根据需要 */
+/* - 添加加载动画样式 */
+/* - 设置图表容器高度 */
+/* - 定义步骤之间的连接线 */
+/* - 添加错误提示样式（红色边框/背景） */
+/* - 添加成功提示样式 */

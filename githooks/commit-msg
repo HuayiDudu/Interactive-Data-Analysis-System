@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# commit-msg hook — 校验 commit message 格式
+# 【负责人】项目负责人
+#
+# 强制 commit message 格式: <type>: <description>
+# type 范围: feat, fix, docs, refactor, style, test, chore
+#
+# 安装: git config core.hooksPath githooks/
+#
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# 允许 merge commit (以 "Merge" 开头)
+if echo "$COMMIT_MSG" | grep -qE "^Merge "; then
+    exit 0
+fi
+
+# 校验格式: <type>: <description>
+if ! echo "$COMMIT_MSG" | grep -qE "^(feat|fix|docs|refactor|style|test|chore): .{1,}$"; then
+    echo ""
+    echo " ❌ commit message 格式错误！"
+    echo ""
+    echo "    规范格式: <type>: <简短描述>"
+    echo ""
+    echo "    合法 type: feat, fix, docs, refactor, style, test, chore"
+    echo ""
+    echo "    示例:"
+    echo "      feat: 实现 CSV 文件上传解析功能"
+    echo "      fix: 修复 IQR 异常检测中空列报错"
+    echo "      docs: 更新数据清洗模块开发文档"
+    echo ""
+    exit 1
+fi
+
+exit 0

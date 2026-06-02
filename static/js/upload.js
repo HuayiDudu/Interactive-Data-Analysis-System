@@ -26,20 +26,19 @@
  * @returns {Promise<object>} 上传成功后的 data 对象
  *   { dataset_id, columns, preview, shape, dtypes }
  * @throws {Error} 上传失败时抛出，消息为后端返回的 message
- *
- * 【实现步骤】
- * 1. 构造 FormData，文件字段名为 "file"
- * 2. POST /upload（Content-Type 由浏览器自动设为 multipart/form-data）
- * 3. 解析 JSON 响应
- * 4. 如果 status === "error"，throw new Error(message)
- * 5. 如果 status === "success"，return result.data
  */
 async function handleUpload(file) {
-    // ================================================================
-    // 【待实现】
-    // 提示: 不要设置 Content-Type header，浏览器会为 FormData 自动设置
-    // ================================================================
-    throw new Error("handleUpload 未实现");
+    var formData = new FormData();
+    formData.append("file", file);
+    var response = await fetch("/upload", {
+        method: "POST",
+        body: formData,
+    });
+    var result = await response.json();
+    if (result.status === "error") {
+        throw new Error(result.message || "上传失败");
+    }
+    return result.data;
 }
 
 // ================================================================
@@ -50,17 +49,41 @@ async function handleUpload(file) {
  * 根据上传返回的数据渲染预览表格。
  *
  * @param {object} data - { columns, preview, shape, dtypes }
- *
- * 【实现步骤】
- * 1. 填充 #dataset-info: 显示 "100 行 × 5 列" 格式
- * 2. 填充 #preview-header: 一行 <tr>，每个列名一个 <th>
- * 3. 填充 #preview-body: 遍历 data.preview 每行创建 <tr>
- * 4. 每列数据类型可以鼠标悬停显示（title 属性）
  */
 function renderPreview(data) {
-    // ================================================================
-    // 【待实现】
-    // ================================================================
+    var datasetInfo = document.getElementById("dataset-info");
+    if (datasetInfo && data.shape) {
+        datasetInfo.textContent = data.shape[0] + " 行 × " + data.shape[1] + " 列";
+    }
+
+    var header = document.getElementById("preview-header");
+    header.innerHTML = "";
+    if (data.columns) {
+        var tr = document.createElement("tr");
+        data.columns.forEach(function (col) {
+            var th = document.createElement("th");
+            th.textContent = col;
+            if (data.dtypes && data.dtypes[col]) {
+                th.title = "类型: " + data.dtypes[col];
+            }
+            tr.appendChild(th);
+        });
+        header.appendChild(tr);
+    }
+
+    var body = document.getElementById("preview-body");
+    body.innerHTML = "";
+    if (data.preview && data.preview.length > 0) {
+        data.preview.forEach(function (row) {
+            var tr = document.createElement("tr");
+            row.forEach(function (cell) {
+                var td = document.createElement("td");
+                td.textContent = cell !== null && cell !== undefined ? String(cell) : "";
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+    }
 }
 
 // ================================================================
@@ -72,14 +95,7 @@ function renderPreview(data) {
  *
  * @param {string} datasetId - 数据集 ID
  * @param {string} format - 导出格式 ("csv" | "xlsx")
- *
- * 【实现步骤】
- * 直接在浏览器打开 /export?dataset_id=xxx&format=xxx
- * 后端会返回 Content-Disposition: attachment 触发下载
  */
 function handleExport(datasetId, format) {
-    // ================================================================
-    // 【待实现】
-    // window.open 或 document.location.href
-    // ================================================================
+    window.open("/export?dataset_id=" + encodeURIComponent(datasetId) + "&format=" + format, "_blank");
 }

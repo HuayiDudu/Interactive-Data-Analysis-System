@@ -4,8 +4,9 @@
 # 【负责人】项目负责人
 #
 # 检查项目:
-# 1. 禁止提交遗留的 NotImplementedError（除非是故意暂缓的标记）
-# 2. 禁止提交 debug 打印
+# 1. Python / JavaScript 语法错误 → 拦截提交
+# 2. 禁止提交遗留的 NotImplementedError
+# 3. 禁止提交 debug 打印
 #
 # 安装: git config core.hooksPath githooks/
 #
@@ -15,9 +16,48 @@ echo "🔍 运行 pre-commit 检查..."
 
 HAS_ERROR=0
 
-# 检查 1: NotImplementedError 不应出现在正式提交中
+# ============================================================
+# 检查 1: 语法错误（必须拦截）
+# ============================================================
+
+# --- Python 语法检查 ---
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+if [ -n "$STAGED_PY" ]; then
+    for f in $STAGED_PY; do
+        if [ ! -f "$f" ]; then
+            continue
+        fi
+        result=$(python -c "compile(open('$f', encoding='utf-8').read(), '$f', 'exec')" 2>&1)
+        if [ $? -ne 0 ]; then
+            echo " ❌ Python 语法错误: $f"
+            echo "$result" | sed 's/^/    /'
+            HAS_ERROR=1
+        fi
+    done
+fi
+
+# --- JavaScript 语法检查 ---
+if command -v node >/dev/null 2>&1; then
+    STAGED_JS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.js$' || true)
+    if [ -n "$STAGED_JS" ]; then
+        for f in $STAGED_JS; do
+            if [ ! -f "$f" ]; then
+                continue
+            fi
+            result=$(node --check "$f" 2>&1)
+            if [ $? -ne 0 ]; then
+                echo " ❌ JavaScript 语法错误: $f"
+                echo "$result" | sed 's/^/    /'
+                HAS_ERROR=1
+            fi
+        done
+    fi
+fi
+
+# ============================================================
+# 检查 2: NotImplementedError（警告，不拦截）
+# ============================================================
 if git diff --cached | grep -q "raise NotImplementedError"; then
-    # 但允许在尚未实现的函数中保留
     NOT_IMPLEMENTED_FILES=$(git diff --cached -G"raise NotImplementedError" --name-only)
     if [ -n "$NOT_IMPLEMENTED_FILES" ]; then
         echo " ⚠ 以下文件包含 raise NotImplementedError（如是有意暂留可忽略）:"
@@ -25,17 +65,19 @@ if git diff --cached | grep -q "raise NotImplementedError"; then
     fi
 fi
 
-# 检查 2: print 调试语句
-DEBUG_FILES=$(git diff --cached -G"print(" --name-only | grep -v "\.md$" || true)
+# ============================================================
+# 检查 3: print 调试语句（警告，不拦截）
+# ============================================================
+DEBUG_FILES=$(git diff --cached -G"print\(" --name-only | grep -v "\.md$" || true)
 if [ -n "$DEBUG_FILES" ]; then
     echo " ⚠ 以下文件包含 print() 调试语句:"
     echo "$DEBUG_FILES" | sed 's/^/    /'
 fi
 
+# ============================================================
 if [ "$HAS_ERROR" -ne 0 ]; then
-    echo " ❌ pre-commit 检查未通过，请修复后重试。"
-    echo "    如需跳过检查: git commit --no-verify"
-    echo "    （但仅在明确需要时使用）"
+    echo ""
+    echo " ❌ pre-commit 检查未通过，请修复语法错误后重试。"
     exit 1
 fi
 

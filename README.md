@@ -41,8 +41,8 @@ WUT Python 课程实验 —— 交互式数据分析系统
 
 | 角色 | 负责内容 | 涉及文件 |
 |------|---------|---------|
-| **项目负责人（通用组件/集成）** | 架构抽象、Repository、Config、App 工厂、蓝图注册 | `repositories/`, `config.py`, `value_objects.py`, `app.py`, `routes/__init__.py`, `services/__init__.py` |
-| **数据管理模块** | 文件上传解析、数据预览、导出 | `services/data_service.py`, `routes/upload.py`, `routes/export.py`, `static/js/upload.js` |
+| **项目负责人（通用组件/集成）** | 架构抽象、Repository 接口、Config、App 工厂、蓝图注册 | `repositories/base.py`, `repositories/__init__.py`, `config.py`, `value_objects.py`, `app.py`, `routes/__init__.py`, `services/__init__.py` |
+| **数据管理模块** | 文件上传解析、数据预览、导出、文件数据仓库 | `repositories/file_repo.py`, `services/data_service.py`, `routes/upload.py`, `routes/export.py`, `static/js/upload.js` |
 | **数据清洗模块** | 缺失值处理、IQR 异常检测 | `services/clean_service.py`, `routes/clean.py`, `static/js/clean.js` |
 | **可视化模块** | 散点图/折线图/柱状图生成 | `services/visualize_service.py`, `routes/plot.py`, `static/js/plot.js` |
 | **分析功能模块** | K-Means 聚类、线性回归 | `services/analyze_service.py`, `routes/analyze.py`, `static/js/analyze.js` |

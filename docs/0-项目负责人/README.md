@@ -17,8 +17,7 @@
 |------|------|
 | `config.py` | 全局配置 |
 | `value_objects.py` | DatasetRef 值对象 |
-| `repositories/base.py` | DataRepository 抽象接口 |
-| `repositories/file_repo.py` | FileRepository 实现 |
+| `repositories/base.py` | DataRepository 抽象接口（定义） |
 | `repositories/__init__.py` | 包导出 |
 | `services/__init__.py` | Service 导出 |
 | `routes/__init__.py` | 蓝图注册 |

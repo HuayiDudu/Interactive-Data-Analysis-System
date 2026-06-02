@@ -5,7 +5,7 @@ repositories/file_repo.py - 文件仓库（MVP 实现）
 【说明】MVP 阶段的数据仓库实现，基于临时 CSV 文件存储。
         使用应用级字典维护 DatasetRef 到文件路径的映射。
         所有路径对外不可见，上层仅通过 DatasetRef 进行数据访问。
-【负责人】项目负责人（通用组件）
+【负责人】数据管理模块开发人员
 """
 
 import os

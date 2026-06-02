@@ -1,7 +1,7 @@
 # 数据管理模块
 
 **所属**：数据管理模块开发人员
-**负责内容**：文件上传解析、数据预览、数据导出
+**负责内容**：文件上传解析、数据预览、数据导出、文件数据仓库
 
 ## 本目录文件
 
@@ -14,6 +14,7 @@
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
+| `repositories/file_repo.py` | **实现** | 文件数据仓库（save/load/delete） |
 | `services/data_service.py` | **实现** | 上传文件的解析、保存、预览逻辑 |
 | `routes/upload.py` | **实现** | POST /upload |
 | `routes/export.py` | **实现** | GET /export |

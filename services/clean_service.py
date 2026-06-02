@@ -8,6 +8,8 @@ services/clean_service.py - 数据清洗服务
 【负责人】数据清洗模块开发人员
 """
 
+import pandas as pd
+
 from repositories.base import DataRepository
 from value_objects import DatasetRef
 

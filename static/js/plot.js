@@ -21,15 +21,30 @@
  * 将数据集列名填充到 X 轴和 Y 轴的下拉框中。
  *
  * @param {string[]} columns - 所有列名
- *
- * 【实现步骤】
- * 1. 清空 #plot-x 和 #plot-y 的现有选项
- * 2. 遍历 columns，为每个下拉框添加 <option value="列名">列名</option>
  */
 function populatePlotColumns(columns) {
-    // ================================================================
-    // 【待实现】
-    // ================================================================
+    var selectX = document.getElementById("plot-x");
+    var selectY = document.getElementById("plot-y");
+
+    selectX.innerHTML = "";
+    selectY.innerHTML = "";
+
+    columns.forEach(function (col) {
+        var optionX = document.createElement("option");
+        optionX.value = col;
+        optionX.textContent = col;
+        selectX.appendChild(optionX);
+
+        var optionY = document.createElement("option");
+        optionY.value = col;
+        optionY.textContent = col;
+        selectY.appendChild(optionY);
+    });
+
+    if (columns.length >= 2) {
+        selectX.selectedIndex = 0;
+        selectY.selectedIndex = 1;
+    }
 }
 
 // ================================================================
@@ -40,19 +55,74 @@ function populatePlotColumns(columns) {
  * 根据用户配置生成图表并渲染到页面。
  *
  * @param {string} datasetId - 当前数据集 ID
- * @returns {Promise<void>}
+ * @returns {Promise<object>} 后端返回的 data 对象，包含 plotly_json 或 image_base64
  * @throws {Error} 生成失败时抛出
- *
- * 【实现步骤】
- * 1. 获取 #plot-x, #plot-y, #plot-type 的值
- * 2. POST /plot 发送 { dataset_id, x, y, type }
- * 3. 根据返回格式渲染:
- *    - image_base64: 在 #plot-container 中插入 <img>
- *    - plotly_json: 使用 Plotly.newPlot() 渲染
- * 4. 显示 #plot-container
  */
 async function handlePlot(datasetId) {
-    // ================================================================
-    // 【待实现】
-    // ================================================================
+    var x = document.getElementById("plot-x").value;
+    var y = document.getElementById("plot-y").value;
+    var type = document.getElementById("plot-type").value;
+
+    if (!x || !y) {
+        throw new Error("请选择 X 轴和 Y 轴列");
+    }
+
+    var response = await fetch("/plot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            dataset_id: datasetId,
+            x: x,
+            y: y,
+            type: type,
+        }),
+    });
+    var result = await response.json();
+    if (result.status === "error") {
+        throw new Error(result.message || "生成图表失败");
+    }
+
+    renderChart(result.data);
+    return result.data;
+}
+
+/**
+ * 根据后端返回的数据渲染图表。
+ *
+ * @param {object} data - { plotly_json } 或 { image_base64 }
+ */
+function renderChart(data) {
+    var container = document.getElementById("plot-container");
+    var chartDiv = document.getElementById("plotly-chart");
+
+    if (data.plotly_json) {
+        var plotData = data.plotly_json;
+        if (typeof plotData === "string") {
+            plotData = JSON.parse(plotData);
+        }
+        var layout = plotData.layout || {};
+        layout.paper_bgcolor = "rgba(0,0,0,0)";
+        layout.plot_bgcolor = "rgba(0,0,0,0)";
+        layout.font = { color: "#ffffff" };
+        layout.xaxis = layout.xaxis || {};
+        layout.xaxis.gridcolor = "rgba(255,255,255,0.05)";
+        layout.xaxis.zerolinecolor = "rgba(255,255,255,0.08)";
+        layout.yaxis = layout.yaxis || {};
+        layout.yaxis.gridcolor = "rgba(255,255,255,0.05)";
+        layout.yaxis.zerolinecolor = "rgba(255,255,255,0.08)";
+        Plotly.newPlot("plotly-chart", plotData.data || plotData, layout, {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+        });
+    } else if (data.image_base64) {
+        var img = document.createElement("img");
+        img.src = "data:image/png;base64," + data.image_base64;
+        img.style.maxWidth = "100%";
+        img.style.display = "block";
+        chartDiv.innerHTML = "";
+        chartDiv.appendChild(img);
+    }
+
+    container.style.display = "block";
 }

@@ -22,19 +22,32 @@
  * 为数据集的每一列生成缺失值策略下拉框。
  *
  * @param {string[]} columns - 所有列名
- *
- * 【实现步骤】
- * 1. 获取 #missing-strategies 容器
- * 2. 遍历 columns，为每列创建一行:
- *    - 左侧: 列名 badge
- *    - 右侧: <select> 下拉框，选项: 不处理 / 均值填充 / 中位数填充 / 删除行
- *    值为: "" / "mean" / "median" / "drop"
- * 3. 追加到容器中
  */
 function populateCleanOptions(columns) {
-    // ================================================================
-    // 【待实现】
-    // ================================================================
+    var container = document.getElementById("missing-strategies");
+    container.innerHTML = "";
+
+    columns.forEach(function (col) {
+        var row = document.createElement("div");
+        row.className = "strategy-row";
+
+        var nameSpan = document.createElement("span");
+        nameSpan.className = "strategy-col-name";
+        nameSpan.textContent = col;
+
+        var select = document.createElement("select");
+        select.className = "strategy-select";
+        select.dataset.column = col;
+        select.innerHTML =
+            '<option value="">不处理</option>' +
+            '<option value="mean">均值填充</option>' +
+            '<option value="median">中位数填充</option>' +
+            '<option value="drop">删除行</option>';
+
+        row.appendChild(nameSpan);
+        row.appendChild(select);
+        container.appendChild(row);
+    });
 }
 
 // ================================================================
@@ -46,15 +59,22 @@ function populateCleanOptions(columns) {
  *
  * @returns {object} 清洗参数
  *   { missing: {列名: 策略}, outlier: "iqr" | "" }
- *
- * 【实现步骤】
- * 1. 遍历所有 .strategy-select 下拉框，收集非空的策略
- * 2. 获取 #outlier-method 的值
  */
 function collectCleanParams() {
-    // ================================================================
-    // 【待实现】
-    // ================================================================
+    var missing = {};
+    var selects = document.querySelectorAll(".strategy-select");
+    selects.forEach(function (select) {
+        if (select.value) {
+            missing[select.dataset.column] = select.value;
+        }
+    });
+
+    var outlier = document.getElementById("outlier-method").value;
+
+    return {
+        missing: missing,
+        outlier: outlier,
+    };
 }
 
 // ================================================================
@@ -67,15 +87,16 @@ function collectCleanParams() {
  * @param {object} params - { dataset_id, missing, outlier }
  * @returns {Promise<object>} { dataset_id, preview, shape, report }
  * @throws {Error} 清洗失败时抛出
- *
- * 【实现步骤】
- * 1. POST /clean，请求体为 params 的 JSON
- * 2. 解析响应
- * 3. status === "error" 时 throw
- * 4. 返回 result.data
  */
 async function handleClean(params) {
-    // ================================================================
-    // 【待实现】
-    // ================================================================
+    var response = await fetch("/clean", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+    });
+    var result = await response.json();
+    if (result.status === "error") {
+        throw new Error(result.message || "清洗失败");
+    }
+    return result.data;
 }

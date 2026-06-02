@@ -156,17 +156,8 @@
                             <!-- <option value="linear_regression">线性回归</option> -->
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">K 值（聚类数）</label>
-                        <input
-                            type="range"
-                            class="form-range"
-                            id="k-slider"
-                            min="2"
-                            max="10"
-                            value="3"
-                        />
-                        <span id="k-value" class="badge bg-secondary">3</span>
+                    <div id="kmeans-params" class="col-md-4">
+                        <!-- 由 analyze.js populateAlgorithmParams 动态生成 -->
                     </div>
                     <div class="col-md-4 d-flex align-items-end">
                         <button id="btn-analyze" class="btn btn-success w-100">执行分析</button>

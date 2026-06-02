@@ -65,7 +65,7 @@ function collectCleanParams() {
  * 发送清洗请求并返回结果。
  *
  * @param {object} params - { dataset_id, missing, outlier }
- * @returns {Promise<object>} { dataset_id, preview, report }
+ * @returns {Promise<object>} { dataset_id, preview, shape, report }
  * @throws {Error} 清洗失败时抛出
  *
  * 【实现步骤】

@@ -31,6 +31,7 @@ clean_bp = Blueprint("clean", __name__)
 #       "data": {
 #         "dataset_id": "d4e5f6...",
 #         "preview": [[...]],
+#         "shape": [87, 5],
 #         "report": {
 #           "missing_handled": {"A": "填充了10个缺失值"},
 #           "outliers_removed": 3,

@@ -148,11 +148,11 @@ document.getElementById("btn-clean").addEventListener("click", async function ()
         // 更新全局状态（清洗生成了新的数据集）
         currentDatasetId = result.dataset_id;
 
-        // 更新预览（使用新数据集的 preview）
+        // 更新预览
         const previewData = {
-            columns: currentColumns,  // 列名通常不变
+            columns: currentColumns,
             preview: result.preview,
-            shape: null,               // shape 未返回则标注
+            shape: result.shape,
         };
         renderPreview(previewData);
 

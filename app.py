@@ -7,7 +7,7 @@ app.py - Flask 应用工厂
 【负责人】项目负责人（通用组件/集成）
 """
 
-from flask import Flask
+from flask import Flask, render_template
 
 from config import MAX_CONTENT_LENGTH, SECRET_KEY, UPLOAD_FOLDER
 
@@ -23,20 +23,6 @@ def create_app() -> Flask:
         4. 注册路由蓝图
         5. 注册错误处理器
         6. 返回 app
-
-    【待实现】
-    - 完善依赖注入链:
-        repo = FileRepository()
-        data_service = DataService(repo)
-        clean_service = CleanService(repo)
-        visualize_service = VisualizeService(repo)
-        analyze_service = AnalyzeService(repo)
-    - 将 Service 实例挂载到 app 上以便路由函数访问:
-        app.data_service = data_service
-        app.clean_service = clean_service
-        app.visualize_service = visualize_service
-        app.analyze_service = analyze_service
-    - 注册统一错误处理器，将未捕获异常转换为 { "status": "error", "message": "..." } 格式
     """
     app = Flask(__name__)
 
@@ -51,17 +37,14 @@ def create_app() -> Flask:
     # 2. 依赖注入：创建 Repository 和 Service 实例
     # 【负责人：】项目负责人（通用组件/集成）
     # ================================================================
-    # ---------- 待实现：创建各层实例并注入依赖 ----------
-    # from repositories import FileRepository
-    # from services import DataService, CleanService, VisualizeService, AnalyzeService
-    #
-    # repo = FileRepository()
-    # app.data_service = DataService(repo)
-    # app.clean_service = CleanService(repo)
-    # app.visualize_service = VisualizeService(repo)
-    # app.analyze_service = AnalyzeService(repo)
+    from repositories import FileRepository
+    from services import DataService, CleanService, VisualizeService, AnalyzeService
 
-    # 各模块路由通过 current_app.data_service / current_app.clean_service 等访问 Service
+    repo = FileRepository()
+    app.data_service = DataService(repo)
+    app.clean_service = CleanService(repo)
+    app.visualize_service = VisualizeService(repo)
+    app.analyze_service = AnalyzeService(repo)
 
     # ================================================================
     # 3. 注册路由蓝图
@@ -76,17 +59,22 @@ def create_app() -> Flask:
     # ================================================================
     @app.route("/")
     def index():
-        """返回主页面。"""
-        # ---------- Web界面模块待实现：返回 index.html 或重定向 ----------
-        return "交互式数据分析系统 - MVP"
+        return render_template("index.html")
 
     # ================================================================
     # 5. 注册错误处理器
     # ================================================================
-    # ---------- 待实现：全局错误处理 ----------
     @app.errorhandler(400)
     def bad_request(error):
         return {"status": "error", "message": str(error)}, 400
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return {"status": "error", "message": "请求的资源不存在"}, 404
+
+    @app.errorhandler(413)
+    def request_entity_too_large(error):
+        return {"status": "error", "message": "上传文件超过大小限制"}, 413
 
     @app.errorhandler(500)
     def internal_error(error):

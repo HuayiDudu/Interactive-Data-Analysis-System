@@ -8,9 +8,6 @@ routes/clean.py - 数据清洗路由
 
 from flask import Blueprint, jsonify, request
 
-from services.clean_service import CleanService
-from value_objects import DatasetRef
-
 clean_bp = Blueprint("clean", __name__)
 
 # ================================================================
@@ -31,6 +28,7 @@ clean_bp = Blueprint("clean", __name__)
 #       "data": {
 #         "dataset_id": "d4e5f6...",
 #         "preview": [[...]],
+#         "shape": [87, 5],
 #         "report": {
 #           "missing_handled": {"A": "填充了10个缺失值"},
 #           "outliers_removed": 3,

@@ -7,6 +7,7 @@ services/data_service.py - 数据管理服务
 【负责人】数据管理模块开发人员
 """
 
+from io import BytesIO
 from typing import Any
 
 import pandas as pd
@@ -78,6 +79,43 @@ class DataService:
         }
 
         return dataset_ref, preview
+
+    def export_data(
+        self, dataset_ref: DatasetRef, format: str = "csv"
+    ) -> tuple[bytes, str, str]:
+        """
+        导出数据集为文件。
+
+        Args:
+            dataset_ref: 数据集引用。
+            format: 导出格式，"csv" 或 "xlsx"。
+
+        Returns:
+            (file_data, content_type, filename) 元组。
+
+        Raises:
+            ValueError: 不支持的导出格式。
+        """
+        df = self.repo.load_data(dataset_ref)
+
+        if format == "csv":
+            data = df.to_csv(index=False).encode("utf-8-sig")
+            content_type = "text/csv"
+            filename = f"export_{dataset_ref.id[:8]}.csv"
+        elif format == "xlsx":
+            buf = BytesIO()
+            df.to_excel(buf, index=False, engine="openpyxl")
+            buf.seek(0)
+            data = buf.read()
+            content_type = (
+                "application/"
+                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            filename = f"export_{dataset_ref.id[:8]}.xlsx"
+        else:
+            raise ValueError(f"不支持的导出格式: {format}")
+
+        return data, content_type, filename
 
     def _parse_file(self, file_storage: Any, filename: str) -> pd.DataFrame:
         """

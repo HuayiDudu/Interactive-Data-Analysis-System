@@ -8,9 +8,6 @@ routes/plot.py - 图表生成路由
 
 from flask import Blueprint, jsonify, request
 
-from services.visualize_service import VisualizeService
-from value_objects import DatasetRef
-
 plot_bp = Blueprint("plot", __name__)
 
 # ================================================================

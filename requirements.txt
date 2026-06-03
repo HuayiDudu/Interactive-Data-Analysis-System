@@ -19,9 +19,9 @@ numpy==2.*                # 数值计算（pandas 依赖及算法实现）
 openpyxl==3.*             # Excel .xlsx 文件读写
 # xlrd==2.*               # Excel .xls 文件读取（如需支持旧格式，取消注释）
 
-# 可视化（任选其一，由可视化服务开发人员决定）
-matplotlib==3.*           # 方案 A：Matplotlib 生成静态图片
-# plotly==5.*             # 方案 B：Plotly 生成交互式图表
+# 可视化（前端已确认使用 Plotly 方案，无需 matplotlib）
+# matplotlib==3.*         # 方案 A：Matplotlib 生成静态图片（已弃用，改用 Plotly）
+plotly==5.*               # 方案 B：Plotly 生成交互式图表（最终选型）
 
 # 机器学习
 scikit-learn==1.*         # K-Means 聚类和线性回归算法

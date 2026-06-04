@@ -47,6 +47,7 @@ class VisualizeService:
         x_col: str,
         y_col: str,
         plot_type: str,
+        **options,
     ) -> dict:
         """
         生成图表数据。
@@ -56,6 +57,12 @@ class VisualizeService:
             x_col: X 轴列名（饼图时为分类列）。
             y_col: Y 轴列名（饼图时为数值列）。
             plot_type: 图表类型，支持 "scatter" | "line" | "bar" | "pie"。
+            **options: 自定义参数，不传则使用默认值。
+                通用: title, color_scheme
+                scatter: opacity, marker_size
+                line: marker_size
+                bar: aggregation (mean|sum|count|median)
+                pie: pie_hole, pie_max_categories
 
         Returns:
             {"plotly_json": {...}} - Plotly Figure JSON
@@ -93,32 +100,32 @@ class VisualizeService:
             if plot_df.empty:
                 raise ValueError("过滤后无可用数据（全为缺失值）")
 
-        # 4. 分发绘图
+        # 4. 分发绘图，透传自定义参数
         if plot_type == "scatter":
-            return self._scatter(plot_df, x_col, y_col)
+            return self._scatter(plot_df, x_col, y_col, **options)
         elif plot_type == "line":
-            return self._line(plot_df, x_col, y_col)
+            return self._line(plot_df, x_col, y_col, **options)
         elif plot_type == "bar":
-            return self._bar(plot_df, x_col, y_col)
+            return self._bar(plot_df, x_col, y_col, **options)
         elif plot_type == "pie":
-            return self._pie(plot_df, x_col, y_col)
+            return self._pie(plot_df, x_col, y_col, **options)
         else:
             raise ValueError(f"不支持的图表类型: {plot_type}")
 
-    def _scatter(self, df, x_col, y_col) -> dict:
+    def _scatter(self, df, x_col, y_col, **options) -> dict:
         """
         生成散点图 - 使用 Plotly
         """
+        color_seq = options.get("color_scheme", PLOTLY_COLORS)
         fig = px.scatter(
             df,
             x=x_col,
             y=y_col,
-            title=f"{x_col} vs {y_col} 散点图",
-            color_discrete_sequence=[PLOTLY_COLORS[0]],
-            opacity=0.8
+            title=options.get("title") or f"{x_col} vs {y_col} 散点图",
+            color_discrete_sequence=[color_seq[0]] if isinstance(color_seq, list) else [color_seq],
+            opacity=options.get("opacity", 0.8)
         )
-        
-        # 自定义样式
+
         fig.update_layout(
             title_font=dict(size=16, family='SimHei'),
             xaxis_title_font=dict(size=12, family='SimHei'),
@@ -127,32 +134,32 @@ class VisualizeService:
             paper_bgcolor='#FFFFFF',
             hovermode='closest'
         )
-        
+
         fig.update_traces(
             marker=dict(
-                size=12,
+                size=options.get("marker_size", 12),
                 line=dict(width=2, color='white')
             )
         )
-        
+
         return {"plotly_json": fig.to_json()}
 
-    def _line(self, df, x_col, y_col) -> dict:
+    def _line(self, df, x_col, y_col, **options) -> dict:
         """
         生成折线图 - 使用 Plotly
         """
+        color_seq = options.get("color_scheme", PLOTLY_COLORS)
         sorted_df = df.sort_values(by=x_col)
-        
+
         fig = px.line(
             sorted_df,
             x=x_col,
             y=y_col,
-            title=f"{x_col} vs {y_col} 折线图",
+            title=options.get("title") or f"{x_col} vs {y_col} 折线图",
             markers=True,
-            color_discrete_sequence=[PLOTLY_COLORS[0]]
+            color_discrete_sequence=[color_seq[0]] if isinstance(color_seq, list) else [color_seq]
         )
-        
-        # 自定义样式
+
         fig.update_layout(
             title_font=dict(size=16, family='SimHei'),
             xaxis_title_font=dict(size=12, family='SimHei'),
@@ -161,43 +168,53 @@ class VisualizeService:
             paper_bgcolor='#FFFFFF',
             hovermode='x unified'
         )
-        
+
         fig.update_traces(
             marker=dict(
-                size=10,
+                size=options.get("marker_size", 10),
                 line=dict(width=2, color='white')
             ),
             line=dict(width=3)
         )
-        
-        # 添加填充区域
+
         fig.add_scatter(
             x=sorted_df[x_col],
             y=sorted_df[y_col],
             fill='tozeroy',
-            fillcolor=f'rgba({self._hex_to_rgb(PLOTLY_COLORS[0])}, 0.1)',
+            fillcolor=f'rgba({self._hex_to_rgb(color_seq[0])}, 0.1)',
             line=dict(width=0),
             showlegend=False
         )
-        
+
         return {"plotly_json": fig.to_json()}
 
-    def _bar(self, df, x_col, y_col) -> dict:
+    def _bar(self, df, x_col, y_col, **options) -> dict:
         """
         生成柱状图 - 使用 Plotly
         """
-        grouped = df.groupby(x_col)[y_col].mean().reset_index()
-        
+        color_seq = options.get("color_scheme", PLOTLY_COLORS)
+        aggregation = options.get("aggregation", "mean")
+
+        if aggregation == "mean":
+            grouped = df.groupby(x_col)[y_col].mean().reset_index()
+        elif aggregation == "sum":
+            grouped = df.groupby(x_col)[y_col].sum().reset_index()
+        elif aggregation == "count":
+            grouped = df.groupby(x_col)[y_col].count().reset_index()
+        elif aggregation == "median":
+            grouped = df.groupby(x_col)[y_col].median().reset_index()
+        else:
+            raise ValueError(f"不支持的聚合方式: {aggregation}")
+
         fig = px.bar(
             grouped,
             x=x_col,
             y=y_col,
-            title=f"{x_col} vs {y_col} 柱状图",
+            title=options.get("title") or f"{x_col} vs {y_col} 柱状图",
             color=x_col,
-            color_discrete_sequence=PLOTLY_COLORS
+            color_discrete_sequence=color_seq if isinstance(color_seq, list) else [color_seq]
         )
-        
-        # 自定义样式
+
         fig.update_layout(
             title_font=dict(size=16, family='SimHei'),
             xaxis_title_font=dict(size=12, family='SimHei'),
@@ -206,46 +223,46 @@ class VisualizeService:
             paper_bgcolor='#FFFFFF',
             showlegend=False
         )
-        
+
         fig.update_traces(
             marker=dict(
                 line=dict(width=2, color='white')
             )
         )
-        
+
         return {"plotly_json": fig.to_json()}
 
-    def _pie(self, df, x_col, y_col) -> dict:
+    def _pie(self, df, x_col, y_col, **options) -> dict:
         """
         生成饼图 - 使用 Plotly
         """
-        # 按分类列分组并求和
+        color_seq = options.get("color_scheme", PLOTLY_COLORS)
+        max_categories = options.get("pie_max_categories", 10)
+
         grouped = df.groupby(x_col)[y_col].sum().reset_index()
-        
-        # 如果分类太多，只显示前 10 个，其余归为"其他"
-        if len(grouped) > 10:
-            top_n = grouped.nlargest(9, y_col)
+
+        if len(grouped) > max_categories:
+            top_n = grouped.nlargest(max_categories - 1, y_col)
             other_sum = grouped.loc[~grouped[x_col].isin(top_n[x_col]), y_col].sum()
             other_row = pd.DataFrame({x_col: ['其他'], y_col: [other_sum]})
             grouped = pd.concat([top_n, other_row], ignore_index=True)
-        
+
         fig = px.pie(
             grouped,
             values=y_col,
             names=x_col,
-            title=f"{y_col} 按 {x_col} 分布",
-            color_discrete_sequence=PLOTLY_COLORS,
-            hole=0.3  # 环形图效果
+            title=options.get("title") or f"{y_col} 按 {x_col} 分布",
+            color_discrete_sequence=color_seq if isinstance(color_seq, list) else [color_seq],
+            hole=options.get("pie_hole", 0.3)
         )
-        
-        # 自定义样式
+
         fig.update_layout(
             title_font=dict(size=16, family='SimHei'),
             paper_bgcolor='#FFFFFF',
             legend_title_font=dict(size=12, family='SimHei'),
             legend=dict(font=dict(size=11))
         )
-        
+
         fig.update_traces(
             textposition='inside',
             textinfo='percent+label',
@@ -253,7 +270,7 @@ class VisualizeService:
                 line=dict(width=2, color='white')
             )
         )
-        
+
         return {"plotly_json": fig.to_json()}
 
     def _hex_to_rgb(self, hex_color: str) -> str:

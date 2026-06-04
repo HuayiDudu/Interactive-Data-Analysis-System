@@ -51,8 +51,11 @@ def plot():
         dataset_ref = DatasetRef(params["dataset_id"])
         visualize_service = current_app.visualize_service
 
+        # 提取额外自定义参数（除必填字段外的所有字段，透传给 Service）
+        extra = {k: v for k, v in params.items() if k not in required}
+
         result = visualize_service.generate_plot(
-            dataset_ref, params["x"], params["y"], params["type"]
+            dataset_ref, params["x"], params["y"], params["type"], **extra
         )
         return jsonify({"status": "success", "data": result})
     except ValueError as e:

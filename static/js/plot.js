@@ -6,12 +6,16 @@
  *
  * 暴露给 Web 界面模块的接口:
  *   - populatePlotColumns(columns, dtypes) → 填充 X/Y 轴列选择下拉框
- *   - handlePlot(datasetId)        → 生成图表并渲染
+ *   - handlePlot(datasetI)        → 生成图表并渲染
  *
  * 【实现要求】
  * - 仅调用控制层 HTTP API (/plot)
- * - 支持 Matplotlib base64 和 Plotly JSON 两种返回格式
+ * - 使用 Plotly.js 渲染交互式图表
  */
+
+// 存储当前图表实例，用于更新
+let currentPlotDiv = null;
+let currentPlotInstance = null;
 
 // ================================================================
 // 1. 填充列选择下拉框
@@ -23,19 +27,20 @@
  * @param {string[]} columns - 所有列名
  * @param {object} dtypes - 列类型信息 {列名: 类型}
  */
-function populatePlotColumns(columns, dtypes) {
-    dtypes = dtypes || {};
+function populatePlotColumns(columns, dtypes = {}) {
     const xSelect = document.getElementById('plot-x');
     const ySelect = document.getElementById('plot-y');
     const plotType = document.getElementById('plot-type').value;
 
+    // 清空原有选项
     xSelect.innerHTML = '';
     ySelect.innerHTML = '';
 
+    // 区分数值列和分类列
     const numericCols = [];
     const categoricalCols = [];
 
-    columns.forEach(function (col) {
+    columns.forEach(col => {
         const dtype = dtypes[col] || '';
         if (dtype.includes('int') || dtype.includes('float') || dtype === 'number') {
             numericCols.push(col);
@@ -44,40 +49,42 @@ function populatePlotColumns(columns, dtypes) {
         }
     });
 
+    // 根据图表类型填充不同的选项
     if (plotType === 'pie') {
-        categoricalCols.forEach(function (col) {
+        // 饼图：X轴为分类列，Y轴为数值列
+        categoricalCols.forEach(col => {
             const option = document.createElement('option');
             option.value = col;
             option.textContent = col;
             xSelect.appendChild(option);
         });
-        numericCols.forEach(function (col) {
+
+        numericCols.forEach(col => {
             const option = document.createElement('option');
             option.value = col;
             option.textContent = col;
             ySelect.appendChild(option);
         });
     } else {
-        numericCols.forEach(function (col) {
+        // 其他图表：X轴和Y轴都填数值列
+        numericCols.forEach(col => {
             const optionX = document.createElement('option');
             optionX.value = col;
             optionX.textContent = col;
             xSelect.appendChild(optionX);
+
             const optionY = document.createElement('option');
             optionY.value = col;
             optionY.textContent = col;
             ySelect.appendChild(optionY);
         });
     }
-
-    if (xSelect.options.length > 0) xSelect.selectedIndex = 0;
-    if (ySelect.options.length > 0) ySelect.selectedIndex = Math.min(1, ySelect.options.length - 1);
 }
 
 // ================================================================
 // 图表类型切换事件
 // ================================================================
-document.getElementById('plot-type').addEventListener('change', function () {
+document.getElementById('plot-type').addEventListener('change', function() {
     if (typeof populatePlotColumns === 'function' && typeof currentColumns !== 'undefined' && currentColumns.length > 0) {
         populatePlotColumns(currentColumns, currentDtypes);
     }
@@ -91,75 +98,91 @@ document.getElementById('plot-type').addEventListener('change', function () {
  * 根据用户配置生成图表并渲染到页面。
  *
  * @param {string} datasetId - 当前数据集 ID
- * @returns {Promise<object>} 后端返回的 data 对象
- * @throws {Error} 生成失败时抛出
+ * @returns {Promise<void>}
  */
 async function handlePlot(datasetId) {
     try {
+        // 1. 获取用户选择的值
         const xCol = document.getElementById('plot-x').value.trim();
         const yCol = document.getElementById('plot-y').value.trim();
         const plotType = document.getElementById('plot-type').value.trim();
 
+        // 简单校验
         if (!xCol || !yCol || !plotType) {
-            throw new Error('请选择 X 轴、Y 轴和图表类型');
+            alert('请选择 X 轴、Y 轴和图表类型！');
+            return;
         }
 
+        const container = document.getElementById('plot-container');
+        container.style.display = 'block';
+
+        // 显示加载状态
+        container.innerHTML = '<div class="text-center py-8"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">加载中...</span></div><p class="mt-2">正在生成图表...</p></div>';
+
+        // 2. 发送请求到后端 /plot
         const response = await fetch('/plot', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 dataset_id: datasetId,
                 x: xCol,
                 y: yCol,
-                type: plotType,
-            }),
+                type: plotType
+            })
         });
 
         const result = await response.json();
+
+        // 请求失败
         if (result.status === 'error') {
-            throw new Error(result.message || '生成图表失败');
+            container.innerHTML = `<div class="alert alert-danger text-center py-4">生成图表失败：${result.message}</div>`;
+            return;
         }
 
-        renderChart(result.data);
-        return result.data;
+        const data = result.data;
+
+        // 3. 使用 Plotly 渲染交互式图表
+        if (data.plotly_json) {
+            try {
+                // 解析 Plotly JSON
+                const plotlyData = JSON.parse(data.plotly_json);
+                
+                // 如果已有图表，使用 react 更新；否则创建新图表
+                if (!currentPlotDiv) {
+                    currentPlotDiv = document.createElement('div');
+                    currentPlotDiv.style.width = '100%';
+                    currentPlotDiv.style.height = '450px';
+                }
+                
+                container.innerHTML = '';
+                container.appendChild(currentPlotDiv);
+                
+                // 使用 Plotly.react 更新或创建图表
+                currentPlotInstance = await Plotly.react(
+                    currentPlotDiv,
+                    plotlyData.data,
+                    plotlyData.layout,
+                    {
+                        responsive: true,
+                        displayModeBar: true,
+                        displaylogo: false
+                    }
+                );
+                
+            } catch (parseError) {
+                console.error('Plotly JSON 解析失败:', parseError);
+                container.innerHTML = '<div class="alert alert-danger text-center py-4">图表数据解析失败</div>';
+            }
+        } else {
+            container.innerHTML = '<div class="alert alert-warning text-center py-4">后端未返回有效的图表数据</div>';
+        }
 
     } catch (err) {
         console.error('图表请求异常：', err);
-        throw err;  // 让 app.js 的 catch 处理
-    }
-}
-
-/**
- * 根据后端返回的数据渲染图表。
- *
- * @param {object} data - { plotly_json } 或 { image_base64 }
- */
-function renderChart(data) {
-    const container = document.getElementById('plot-container');
-    container.style.display = 'block';
-    container.innerHTML = '';
-
-    if (data.plotly_json) {
-        const plotDiv = document.createElement('div');
-        plotDiv.style.width = '100%';
-        plotDiv.style.height = '450px';
-        container.appendChild(plotDiv);
-
-        const parsed = typeof data.plotly_json === 'string'
-            ? JSON.parse(data.plotly_json)
-            : data.plotly_json;
-
-        Plotly.newPlot(plotDiv, parsed.data || parsed, parsed.layout || {}, {
-            responsive: true,
-            displayModeBar: true,
-            displaylogo: false,
-        });
-    } else if (data.image_base64) {
-        const img = document.createElement('img');
-        img.src = 'data:image/png;base64,' + data.image_base64;
-        img.style.maxWidth = '100%';
-        container.appendChild(img);
-    } else {
-        throw new Error('后端未返回有效的图表数据');
+        const container = document.getElementById('plot-container');
+        container.style.display = 'block';
+        container.innerHTML = '<div class="alert alert-danger text-center py-4">网络错误或服务异常，请稍后重试</div>';
     }
 }

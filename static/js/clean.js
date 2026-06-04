@@ -32,27 +32,9 @@
  * 3. 追加到容器中
  */
 function populateCleanOptions(columns) {
-    const container = document.getElementById("missing-strategies");
-    container.innerHTML = "";
-
-    columns.forEach(function (col) {
-        var div = document.createElement("div");
-        div.className = "row mb-2 align-items-center";
-        div.innerHTML =
-            '<div class="col-3">' +
-            '<span class="badge bg-secondary">' + col + '</span>' +
-            '</div>' +
-            '<div class="col-9">' +
-            '<select class="form-select form-select-sm strategy-select" ' +
-            'data-col="' + col + '">' +
-            '<option value="">不处理</option>' +
-            '<option value="mean">均值填充</option>' +
-            '<option value="median">中位数填充</option>' +
-            '<option value="drop">删除行</option>' +
-            '</select>' +
-            '</div>';
-        container.appendChild(div);
-    });
+    // ================================================================
+    // 【待实现】
+    // ================================================================
 }
 
 // ================================================================
@@ -70,18 +52,9 @@ function populateCleanOptions(columns) {
  * 2. 获取 #outlier-method 的值
  */
 function collectCleanParams() {
-    var missing = {};
-    var selects = document.querySelectorAll(".strategy-select");
-
-    selects.forEach(function (select) {
-        if (select.value) {
-            missing[select.dataset.col] = select.value;
-        }
-    });
-
-    var outlier = document.getElementById("outlier-method").value;
-
-    return { missing: missing, outlier: outlier };
+    // ================================================================
+    // 【待实现】
+    // ================================================================
 }
 
 // ================================================================
@@ -102,17 +75,7 @@ function collectCleanParams() {
  * 4. 返回 result.data
  */
 async function handleClean(params) {
-    var response = await fetch("/clean", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-    });
-
-    var result = await response.json();
-
-    if (result.status === "error") {
-        throw new Error(result.message);
-    }
-
-    return result.data;
+    // ================================================================
+    // 【待实现】
+    // ================================================================
 }

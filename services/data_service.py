@@ -64,6 +64,19 @@ class DataService:
         # ---------- 待实现：确定文件类型并解析为 DataFrame ----------
         df: pd.DataFrame = self._parse_file(file_storage, filename)
 
+        # 去重列名（源文件可能有同名列，如两个"年龄"）
+        if not df.columns.is_unique:
+            seen: dict[str, int] = {}
+            deduped: list[str] = []
+            for c in df.columns:
+                if c in seen:
+                    seen[c] += 1
+                    deduped.append(f"{c}_{seen[c]}")
+                else:
+                    seen[c] = 1
+                    deduped.append(c)
+            df.columns = deduped
+
         # ================================================================
         # 2. 通过数据访问层保存数据
         # 【说明】repo.save_data 由通用组件提供，此处直接调用

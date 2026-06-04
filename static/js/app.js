@@ -341,6 +341,12 @@ document.getElementById("btn-plot").addEventListener("click", async function () 
 
         plotLoading.style.display = "none";
 
+        if (!result) {
+            setNavStatus("visualize", "FAILED");
+            setSysStatus("图表生成失败");
+            return;
+        }
+
         setNavStatus("visualize", "COMPLETED");
         markNavDone("visualize");
         setSysStatus("图表生成完成");

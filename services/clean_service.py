@@ -82,8 +82,10 @@ class CleanService:
         # 4. 保存清洗结果为新数据集
         new_ref = self.repo.save_data(df)
 
-        # 5. 构造预览
-        preview = df.head(5).values.tolist()
+        # 5. 构造预览（NaN 转 None 保持 JSON 合法）
+        preview = []
+        for _, row in df.head(5).iterrows():
+            preview.append([None if pd.isna(v) else v for v in row])
 
         return new_ref, preview, report
 

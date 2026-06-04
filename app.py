@@ -33,15 +33,24 @@ def create_app() -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
     app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
     app.config["DATABASE_PATH"] = DATABASE_PATH
+    app.config["SESSION_PERMANENT"] = True
+    app.config["PERMANENT_SESSION_LIFETIME"] = 86400  # 24 小时
 
     # ================================================================
     # 2. 依赖注入：创建 Repository 和 Service 实例
     # 【负责人：】项目负责人（通用组件/集成）
     # ================================================================
     from repositories import SQLiteRepository
-    from services import DataService, CleanService, VisualizeService, AnalyzeService
+    from services import (
+        AuthService,
+        DataService,
+        CleanService,
+        VisualizeService,
+        AnalyzeService,
+    )
 
     repo = SQLiteRepository(app.config["DATABASE_PATH"])
+    app.auth_service = AuthService(repo)
     app.data_service = DataService(repo)
     app.clean_service = CleanService(repo)
     app.visualize_service = VisualizeService(repo)

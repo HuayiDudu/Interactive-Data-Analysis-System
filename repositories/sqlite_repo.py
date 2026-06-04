@@ -53,6 +53,14 @@ class SQLiteRepository(DataRepository):
                 created_at TEXT    DEFAULT (datetime('now', 'localtime'))
             )
         """)
+        self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                username   TEXT    UNIQUE NOT NULL,
+                password   TEXT    NOT NULL,
+                created_at TEXT    DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
         self._conn.commit()
 
     def save_data(
@@ -116,3 +124,68 @@ class SQLiteRepository(DataRepository):
             "DELETE FROM datasets WHERE id = ?", (ref.id,)
         )
         self._conn.commit()
+
+    # ================================================================
+    # 用户管理（扩展阶段 — 多用户登录）
+    # ================================================================
+
+    def create_user(self, username: str, password_hash: str) -> int:
+        """
+        创建新用户。
+
+        Args:
+            username: 用户名（唯一）。
+            password_hash: werkzeug 密码哈希值。
+
+        Returns:
+            新用户的 id。
+
+        Raises:
+            sqlite3.IntegrityError: 用户名已存在。
+        """
+        cursor = self._conn.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            (username, password_hash),
+        )
+        self._conn.commit()
+        return cursor.lastrowid
+
+    def get_user_by_username(self, username: str) -> dict | None:
+        """
+        根据用户名查询用户。
+
+        Returns:
+            用户字典 {id, username, password, created_at} 或 None。
+        """
+        row = self._conn.execute(
+            "SELECT id, username, password, created_at FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "username": row[1],
+            "password": row[2],
+            "created_at": row[3],
+        }
+
+    def get_user_by_id(self, user_id: int) -> dict | None:
+        """
+        根据 ID 查询用户。
+
+        Returns:
+            用户字典 {id, username, password, created_at} 或 None。
+        """
+        row = self._conn.execute(
+            "SELECT id, username, password, created_at FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "username": row[1],
+            "password": row[2],
+            "created_at": row[3],
+        }

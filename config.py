@@ -37,6 +37,12 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 # ============================================================
 # 数据库配置（扩展阶段使用）
 # ============================================================
+DATABASE_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(BASE_DIR, "analysis.db"),
+)
+"""SQLite 数据库文件路径，扩展阶段启用SQLite时使用"""
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///analysis.db")
 """数据库连接URL，MVP阶段未使用，扩展阶段启用SQLite时使用"""
 

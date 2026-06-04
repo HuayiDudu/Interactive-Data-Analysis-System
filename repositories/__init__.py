@@ -9,12 +9,10 @@ repositories 包 - 数据访问层
 
 from .base import DataRepository
 from .file_repo import FileRepository
-
-# 扩展阶段取消注释
-# from .sqlite_repo import SQLiteRepository
+from .sqlite_repo import SQLiteRepository
 
 __all__ = [
     "DataRepository",
     "FileRepository",
-    # "SQLiteRepository",
+    "SQLiteRepository",
 ]

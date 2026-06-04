@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>登录 — 交互式数据分析系统</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap"
+        rel="stylesheet" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --accent: #00d4ff;
+            --accent-glow: rgba(0, 212, 255, 0.28);
+            --font-display: 'Orbitron', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+            --font-body: 'Noto Sans SC', 'Segoe UI', sans-serif;
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: var(--font-body);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ============================================================
+           Canvas — 全屏螺旋星空
+           ============================================================ */
+        #star-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            display: block;
+        }
+
+        /* ============================================================
+           英雄区 — 动画结束后即刻浮现
+           设计方向：Cyber-luxury / 精炼终端美学
+           精确的字重对比 · 克制的辉光 · 紧密的交错时序
+           ============================================================ */
+        .hero-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease-out;
+        }
+
+        #sparkle-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 9;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* ---- 标题 ---- */
+        .hero-title {
+            font-family: var(--font-display);
+            font-size: clamp(2.6rem, 5.5vw, 4.8rem);
+            font-weight: 600;
+            letter-spacing: 0.10em;
+            color: #ffffff;
+            text-align: center;
+            line-height: 1.05;
+            text-shadow:
+                0 0 50px rgba(0, 212, 255, 0.25),
+                0 0 100px rgba(0, 212, 255, 0.10);
+            transform: translateY(24px);
+            opacity: 0;
+            transition:
+                transform 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.55s ease-out;
+        }
+
+        .hero-title.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* ---- 分隔装饰线 ---- */
+        .hero-divider {
+            width: 64px;
+            height: 1px;
+            background: linear-gradient(90deg,
+                    transparent,
+                    rgba(0, 212, 255, 0.45),
+                    transparent);
+            margin: 28px 0 24px;
+            transform: scaleX(0);
+            opacity: 0;
+            transition:
+                transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.4s ease-out;
+        }
+
+        .hero-divider.visible {
+            transform: scaleX(1);
+            opacity: 1;
+        }
+
+        /* ---- 英文副标题 ---- */
+        .hero-subtitle {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 400;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: rgba(148, 163, 184, 0.45);
+            text-align: center;
+            transform: translateY(16px);
+            opacity: 0;
+            transition:
+                transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.45s ease-out;
+        }
+
+        .hero-subtitle.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* ---- Enter 按钮 ---- */
+        .hero-enter-btn {
+            pointer-events: auto;
+            background: rgba(0, 212, 255, 0.04);
+            border: 1px solid rgba(0, 212, 255, 0.25);
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            font-weight: 400;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.60);
+            padding: 10px 48px;
+            margin-top: 36px;
+            transform: translateY(16px);
+            opacity: 0;
+            transition:
+                transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.45s ease-out,
+                border-color 0.5s ease,
+                color 0.5s ease,
+                background 0.5s ease,
+                box-shadow 0.5s ease,
+                letter-spacing 0.5s ease;
+        }
+
+        .hero-enter-btn.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .hero-enter-btn:hover {
+            border-color: rgba(0, 212, 255, 0.60);
+            background: rgba(0, 212, 255, 0.08);
+            color: var(--accent);
+            letter-spacing: 0.30em;
+            box-shadow:
+                0 0 20px rgba(0, 212, 255, 0.15),
+                inset 0 0 20px rgba(0, 212, 255, 0.04);
+        }
+
+        .hero-enter-btn:active {
+            transform: scale(0.96);
+            transition: transform 0.12s ease;
+        }
+
+        /* ==================================================================
+           版本号
+           ================================================================== */
+        .version-tag {
+            position: fixed;
+            bottom: 28px;
+            right: 36px;
+            z-index: 10;
+            font-family: var(--font-mono);
+            font-size: 0.64rem;
+            letter-spacing: 0.06em;
+            color: rgba(148, 163, 184, 0.35);
+            opacity: 0;
+        }
+
+        .version-tag.visible {
+            opacity: 0.40;
+            transition: opacity 1.0s ease-out;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="star-canvas"></canvas>
+    <canvas id="sparkle-canvas"></canvas>
+
+    <!-- 英雄区：动画结束后浮现 -->
+    <div class="hero-overlay" id="hero-overlay">
+        <h1 class="hero-title" id="hero-title">数据分析系统</h1>
+        <div class="hero-divider" id="hero-divider"></div>
+        <p class="hero-subtitle" id="hero-subtitle">Interactive Data Analysis System</p>
+        <button class="hero-enter-btn" id="hero-enter-btn" onclick="window.location.href='/app'">
+            Enter
+        </button>
+    </div>
+
+    <!-- 版本号 -->
+    <span class="version-tag" id="version-tag">v1.0.0 · WUT Python</span>
+
+    <!-- ================================================================
+         Spiral Star Field — 1:1 port from 21st.dev Bleuje animation
+         ================================================================ -->
+    <script>
+        (function () {
+            "use strict";
+
+            var canvas = document.getElementById("star-canvas");
+            var ctx = canvas.getContext("2d");
+
+            // ============================================================
+            //  Vector2D
+            // ============================================================
+            function Vector2D(x, y) { this.x = x; this.y = y; }
+            Vector2D.random = function (min, max) { return min + Math.random() * (max - min); };
+
+            // ============================================================
+            //  Vector3D
+            // ============================================================
+            function Vector3D(x, y, z) { this.x = x; this.y = y; this.z = z; }
+            Vector3D.random = function (min, max) { return min + Math.random() * (max - min); };
+
+            // ============================================================
+            //  AnimationController (original class ported to constructor fn)
+            // ============================================================
+            var CHANGE_EVENT_TIME = 0.32;
+            var CAMERA_Z = -400;
+            var CAMERA_TRAVEL_DIST = 3400;
+            var START_DOT_Y_OFFSET = 28;
+            var VIEW_ZOOM = 100;
+            var NUMBER_OF_STARS = 5000;
+            var TRAIL_LENGTH = 80;
+
+            var ctrl = {};       //  controller object
+            ctrl.time = 0;
+            ctrl.dpr = window.devicePixelRatio || 1;
+            ctrl.size = 0;
+            ctrl.stars = [];
+
+            // --- Easing ---
+            function ease(p, g) {
+                if (p < 0.5) return 0.5 * Math.pow(2 * p, g);
+                return 1 - 0.5 * Math.pow(2 * (1 - p), g);
+            }
+            function easeOutElastic(x) {
+                var c4 = (2 * Math.PI) / 4.5;
+                if (x <= 0) return 0;
+                if (x >= 1) return 1;
+                return Math.pow(2, -8 * x) * Math.sin((x * 8 - 0.75) * c4) + 1;
+            }
+            function constrain(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
+            function map(v, s1, e1, s2, e2) { return s2 + (e2 - s2) * ((v - s1) / (e1 - s1)); }
+            function lerp(a, b, t) { return a * (1 - t) + b * t; }
+
+            // --- Spiral path ---
+            function spiralPath(p) {
+                p = constrain(1.2 * p, 0, 1);
+                p = ease(p, 1.8);
+                var turns = 6;
+                var theta = 2 * Math.PI * turns * Math.sqrt(p);
+                var r = 170 * Math.sqrt(p);
+                return new Vector2D(r * Math.cos(theta), r * Math.sin(theta) + START_DOT_Y_OFFSET);
+            }
+
+            // --- Rotate between two 2D points ---
+            function rotate(v1, v2, p, orientation) {
+                var mx = (v1.x + v2.x) / 2;
+                var my = (v1.y + v2.y) / 2;
+                var dx = v1.x - mx;
+                var dy = v1.y - my;
+                var angle = Math.atan2(dy, dx);
+                var o = orientation ? -1 : 1;
+                var r = Math.sqrt(dx * dx + dy * dy);
+                var bounce = Math.sin(p * Math.PI) * 0.05 * (1 - p);
+                return new Vector2D(
+                    mx + r * (1 + bounce) * Math.cos(angle + o * Math.PI * easeOutElastic(p)),
+                    my + r * (1 + bounce) * Math.sin(angle + o * Math.PI * easeOutElastic(p))
+                );
+            }
+
+            // --- showProjectedDot (3D -> 2D projection with color) ---
+            function showProjectedDot(position, sizeFactor, dotColor) {
+                var t2 = constrain(map(ctrl.time, CHANGE_EVENT_TIME, 1, 0, 1), 0, 1);
+                var newCamZ = CAMERA_Z + ease(Math.pow(t2, 1.2), 1.8) * CAMERA_TRAVEL_DIST;
+                if (position.z > newCamZ) {
+                    var depth = position.z - newCamZ;
+                    var x = VIEW_ZOOM * position.x / depth;
+                    var y = VIEW_ZOOM * position.y / depth;
+                    var sw = 18000 * sizeFactor / depth;
+                    ctx.fillStyle = dotColor || "#00d4ff";
+                    ctx.lineWidth = sw;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // --- drawStartDot ---
+            function drawStartDot() {
+                if (ctrl.time > CHANGE_EVENT_TIME) {
+                    var dy = CAMERA_Z * START_DOT_Y_OFFSET / VIEW_ZOOM;
+                    var pos = new Vector3D(0, dy, CAMERA_TRAVEL_DIST);
+                    showProjectedDot(pos, 3.5, "#00d4ff");
+                }
+            }
+
+            // --- drawTrail ---
+            function drawTrail(t1) {
+                for (var i = 0; i < TRAIL_LENGTH; i++) {
+                    var f = map(i, 0, TRAIL_LENGTH, 1.1, 0.1);
+                    var sw = (3.5 * (1 - t1) + 7.0 * Math.sin(Math.PI * t1)) * f;
+                    ctx.fillStyle = "#00d4ff";
+                    ctx.lineWidth = sw;
+
+                    var pathTime = t1 - 0.00015 * i;
+                    var position = spiralPath(pathTime);
+                    var offset = new Vector2D(position.x + 5, position.y + 5);
+                    var rotated = rotate(
+                        position, offset,
+                        Math.sin(ctrl.time * Math.PI * 2) * 0.5 + 0.5,
+                        i % 2 === 0
+                    );
+                    ctx.beginPath();
+                    ctx.arc(rotated.x, rotated.y, sw / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // ============================================================
+            //  Star class — tinted with project cyan/dark theme
+            // ============================================================
+            function starColor() {
+                var r = Math.random();
+                if (r < 0.22) return "rgba(0,212,255," + Vector2D.random(0.60, 0.95) + ")";
+                if (r < 0.38) return "rgba(86,228,255," + Vector2D.random(0.50, 0.85) + ")";
+                if (r < 0.48) return "rgba(255,255,255," + Vector2D.random(0.55, 0.90) + ")";
+                return "rgba(148,163,184," + Vector2D.random(0.35, 0.65) + ")";
+            }
+
+            function Star() {
+                this.angle = Math.random() * Math.PI * 2;
+                this.distance = 30 * Math.random() + 15;
+                this.rotationDirection = Math.random() > 0.5 ? 1 : -1;
+                this.expansionRate = 1.2 + Math.random() * 0.8;
+                this.finalScale = 0.7 + Math.random() * 0.6;
+
+                this.dx = this.distance * Math.cos(this.angle);
+                this.dy = this.distance * Math.sin(this.angle);
+
+                this.spiralLocation = (1 - Math.pow(1 - Math.random(), 3.0)) / 1.3;
+                this.z = Vector2D.random(0.5 * CAMERA_Z, CAMERA_TRAVEL_DIST + CAMERA_Z);
+                this.z = lerp(this.z, CAMERA_TRAVEL_DIST / 2, 0.3 * this.spiralLocation);
+                this.strokeWeightFactor = Math.pow(Math.random(), 2.0);
+                this.color = starColor();
+            }
+
+            Star.prototype.render = function (p) {
+                var spiralPos = spiralPath(this.spiralLocation);
+                var q = p - this.spiralLocation;
+                if (q <= 0) return;
+
+                var disp = constrain(4 * q, 0, 1);
+                var linearE = disp;
+                var elasticE = easeOutElastic(disp);
+                var powerE = Math.pow(disp, 2);
+
+                var easing;
+                if (disp < 0.3) {
+                    easing = lerp(linearE, powerE, disp / 0.3);
+                } else if (disp < 0.7) {
+                    var tt = (disp - 0.3) / 0.4;
+                    easing = lerp(powerE, elasticE, tt);
+                } else {
+                    easing = elasticE;
+                }
+
+                var sx, sy;
+                if (disp < 0.3) {
+                    sx = lerp(spiralPos.x, spiralPos.x + this.dx * 0.3, easing / 0.3);
+                    sy = lerp(spiralPos.y, spiralPos.y + this.dy * 0.3, easing / 0.3);
+                } else if (disp < 0.7) {
+                    var midP = (disp - 0.3) / 0.4;
+                    var curveS = Math.sin(midP * Math.PI) * this.rotationDirection * 1.5;
+                    var baseX = spiralPos.x + this.dx * 0.3;
+                    var baseY = spiralPos.y + this.dy * 0.3;
+                    var tgtX = spiralPos.x + this.dx * 0.7;
+                    var tgtY = spiralPos.y + this.dy * 0.7;
+                    var perpX = -this.dy * 0.4 * curveS;
+                    var perpY = this.dx * 0.4 * curveS;
+                    sx = lerp(baseX, tgtX, midP) + perpX * midP;
+                    sy = lerp(baseY, tgtY, midP) + perpY * midP;
+                } else {
+                    var finP = (disp - 0.7) / 0.3;
+                    var bX = spiralPos.x + this.dx * 0.7;
+                    var bY = spiralPos.y + this.dy * 0.7;
+                    var tgtDist = this.distance * this.expansionRate * 1.5;
+                    var spiralTurns = 1.2 * this.rotationDirection;
+                    var spiralAngle = this.angle + spiralTurns * finP * Math.PI;
+                    var tgtX = spiralPos.x + tgtDist * Math.cos(spiralAngle);
+                    var tgtY = spiralPos.y + tgtDist * Math.sin(spiralAngle);
+                    sx = lerp(bX, tgtX, finP);
+                    sy = lerp(bY, tgtY, finP);
+                }
+
+                //  2D screen -> 3D space
+                var vx = (this.z - CAMERA_Z) * sx / VIEW_ZOOM;
+                var vy = (this.z - CAMERA_Z) * sy / VIEW_ZOOM;
+                var position = new Vector3D(vx, vy, this.z);
+
+                //  Size animation
+                var sizeMul;
+                if (disp < 0.6) {
+                    sizeMul = 1.0 + disp * 0.2;
+                } else {
+                    var t = (disp - 0.6) / 0.4;
+                    sizeMul = 1.2 * (1.0 - t) + this.finalScale * t;
+                }
+                var dotSize = 720 * this.strokeWeightFactor * sizeMul;
+                showProjectedDot(position, dotSize, this.color);
+            };
+
+            // ============================================================
+            //  Setup seeded random for deterministic star placement
+            // ============================================================
+            var _origRandom = Math.random;
+            (function () {
+                var seed = 1234;
+                Math.random = function () {
+                    seed = (seed * 9301 + 49297) % 233280;
+                    return seed / 233280;
+                };
+            })();
+
+            //  Create stars with seeded random
+            for (var i = 0; i < NUMBER_OF_STARS; i++) {
+                ctrl.stars.push(new Star());
+            }
+            Math.random = _origRandom;
+
+            // ============================================================
+            //  Resize
+            // ============================================================
+            function resize() {
+                var w = window.innerWidth;
+                var h = window.innerHeight;
+                ctrl.size = Math.max(w, h);
+                canvas.width = ctrl.size * ctrl.dpr;
+                canvas.height = ctrl.size * ctrl.dpr;
+                canvas.style.width = w + "px";
+                canvas.style.height = h + "px";
+                ctx.setTransform(ctrl.dpr, 0, 0, ctrl.dpr, 0, 0);
+            }
+            resize();
+            window.addEventListener("resize", resize);
+
+            // ============================================================
+            //  Main render (matches original render() exactly)
+            // ============================================================
+            function render() {
+                ctx.fillStyle = "#070e1b";
+                ctx.fillRect(0, 0, ctrl.size, ctrl.size);
+
+                ctx.save();
+                ctx.translate(ctrl.size / 2, ctrl.size / 2);
+
+                var t1 = constrain(map(ctrl.time, 0, CHANGE_EVENT_TIME + 0.25, 0, 1), 0, 1);
+                var t2 = constrain(map(ctrl.time, CHANGE_EVENT_TIME, 1, 0, 1), 0, 1);
+
+                ctx.rotate(-Math.PI * ease(t2, 2.7));
+                drawTrail(t1);
+
+                for (var i = 0; i < ctrl.stars.length; i++) {
+                    ctrl.stars[i].render(t1);
+                }
+
+                drawStartDot();
+                ctx.restore();
+            }
+
+            // ============================================================
+            //  GSAP timeline
+            // ============================================================
+            var heroShown = false;
+            var tl = gsap.timeline();
+            tl.to(ctrl, {
+                time: 1,
+                duration: 15,
+                ease: "none",
+                onUpdate: function () {
+                    render();
+                    if (ctrl.time > 0.75 && !heroShown) {
+                        heroShown = true;
+                        showHero();
+                    }
+                },
+                onComplete: function () {
+                    render();
+                }
+            });
+
+            // ============================================================
+            //  Hero reveal & sparkle overlay
+            // ============================================================
+            var sparkleCanvas = document.getElementById("sparkle-canvas");
+            var sparkleCtx = sparkleCanvas.getContext("2d");
+            var sparkles = [];
+            var sparkleRunning = false;
+            var SPARKLE_COUNT = 200;
+
+            function Sparkle() {
+                this.x = Math.random() * (window.innerWidth * 0.7) + window.innerWidth * 0.15;
+                this.y = Math.random() * (window.innerHeight * 0.5) + window.innerHeight * 0.2;
+                this.r = Math.random() * 2.0 + 0.4;
+                this.vx = (Math.random() - 0.5) * 0.6;
+                this.vy = -(Math.random() * 0.7 + 0.3);
+                this.life = Math.random() * 1.2 + 0.6;
+                this.maxLife = this.life;
+                this.opacity = 0;
+                this.opacityTarget = Math.random() * 0.85 + 0.15;
+                this.fadeIn = true;
+            }
+
+            Sparkle.prototype.update = function () {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= 0.008;
+                if (this.fadeIn) {
+                    this.opacity += 0.03;
+                    if (this.opacity >= this.opacityTarget) this.fadeIn = false;
+                }
+                if (this.life < 0.35) {
+                    this.opacity -= 0.015;
+                }
+                if (this.opacity < 0) this.opacity = 0;
+            };
+
+            Sparkle.prototype.alive = function () {
+                return this.life > 0 && this.opacity > 0.005;
+            };
+
+            function initSparkles() {
+                for (var i = 0; i < SPARKLE_COUNT; i++) {
+                    var s = new Sparkle();
+                    s.life = Math.random() * 1.5;
+                    sparkles.push(s);
+                }
+            }
+
+            function resizeSparkleCanvas() {
+                sparkleCanvas.width = window.innerWidth * (window.devicePixelRatio || 1);
+                sparkleCanvas.height = window.innerHeight * (window.devicePixelRatio || 1);
+                sparkleCanvas.style.width = window.innerWidth + "px";
+                sparkleCanvas.style.height = window.innerHeight + "px";
+                sparkleCtx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+            }
+
+            function renderSparkles() {
+                sparkleCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+                for (var i = 0; i < sparkles.length; i++) {
+                    var s = sparkles[i];
+                    s.update();
+                    if (!s.alive()) {
+                        sparkles[i] = new Sparkle();
+                        s = sparkles[i];
+                    }
+
+                    sparkleCtx.globalAlpha = s.opacity;
+                    sparkleCtx.fillStyle = "#00d4ff";
+                    sparkleCtx.shadowColor = "rgba(0, 212, 255, 0.50)";
+                    sparkleCtx.shadowBlur = 4;
+                    sparkleCtx.beginPath();
+                    sparkleCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                    sparkleCtx.fill();
+                }
+                sparkleCtx.shadowBlur = 0;
+                sparkleCtx.globalAlpha = 1;
+
+                if (sparkleRunning) {
+                    requestAnimationFrame(renderSparkles);
+                }
+            }
+
+            function showHero() {
+                resizeSparkleCanvas();
+                initSparkles();
+                sparkleCanvas.style.display = "block";
+                sparkleRunning = true;
+                renderSparkles();
+
+                //  Instant overlay visible — title pops immediately
+                var heroOverlay = document.getElementById("hero-overlay");
+                heroOverlay.style.opacity = "1";
+
+                //  Staggered reveals: 0ms / 80ms / 160ms / 400ms
+                setTimeout(function () {
+                    document.getElementById("hero-title").classList.add("visible");
+                }, 0);
+
+                setTimeout(function () {
+                    document.getElementById("hero-divider").classList.add("visible");
+                    document.getElementById("hero-subtitle").classList.add("visible");
+                }, 80);
+
+                setTimeout(function () {
+                    document.getElementById("hero-enter-btn").classList.add("visible");
+                }, 160);
+
+                setTimeout(function () {
+                    document.getElementById("version-tag").classList.add("visible");
+                }, 400);
+            }
+        })();
+    </script>
+</body>
+
+</html>

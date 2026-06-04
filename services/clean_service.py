@@ -8,6 +8,9 @@ services/clean_service.py - 数据清洗服务
 【负责人】数据清洗模块开发人员
 """
 
+import numpy as np
+import pandas as pd
+
 from repositories.base import DataRepository
 from value_objects import DatasetRef
 
@@ -56,60 +59,129 @@ class CleanService:
                 - "outliers_removed": int（移除的异常值行数）
                 - "rows_before": int（清洗前行数）
                 - "rows_after": int（清洗后行数）
-
-        【待实现】
-        - 缺失值处理：
-          - "mean": 用该列均值填充（仅数值列）
-          - "median": 用该列中位数填充（仅数值列）
-          - "drop": 删除包含缺失值的行
-        - 异常值检测（IQR 方法）：
-          - 对所有数值列计算 Q1、Q3 和 IQR
-          - 移除超出 [Q1 - 1.5*IQR, Q3 + 1.5*IQR] 范围的行
-          - 注意：IQR 适用于数值列，非数值列应跳过
-        - 每次清洗后通过 self.repo.save_data() 保存新数据集
         """
-        # ================================================================
-        # 【待实现：数据清洗模块】实现清洗逻辑
-        # 1. 通过 self.repo.load_data(dataset_ref) 加载原始数据
-        # 2. 遍历 missing_strategy 处理各列的缺失值
-        # 3. 如果 outlier_method == "iqr"，执行异常值检测和移除
-        # 4. 通过 self.repo.save_data(cleaned_df) 保存清洗结果
-        # 5. 构造预览和报告
-        # 6. 返回 (new_ref, preview, report)
-        # ================================================================
-        raise NotImplementedError("数据清洗模块开发人员需实现 clean 方法")
+        # 1. 加载原始数据
+        df = self.repo.load_data(dataset_ref)
+        rows_before = len(df)
+        report: dict = {}
 
-    def _handle_missing(self, df, strategy: dict) -> tuple:
+        # 2. 处理缺失值
+        if missing_strategy:
+            df, missing_report = self._handle_missing(df, missing_strategy)
+            report["missing_handled"] = missing_report
+
+        # 3. 异常值检测
+        outliers_removed = 0
+        if outlier_method == "iqr":
+            df, outliers_removed = self._detect_outliers_iqr(df)
+
+        report["outliers_removed"] = outliers_removed
+        report["rows_before"] = rows_before
+        report["rows_after"] = len(df)
+
+        # 4. 保存清洗结果为新数据集
+        new_ref = self.repo.save_data(df)
+
+        # 5. 构造预览
+        preview = df.head(5).values.tolist()
+
+        return new_ref, preview, report
+
+    def _handle_missing(
+        self, df: pd.DataFrame, strategy: dict
+    ) -> tuple[pd.DataFrame, dict]:
         """
         处理缺失值。
 
         Args:
             df: 原始 DataFrame。
-            strategy: 缺失值策略字典。
+            strategy: 缺失值策略字典，格式 {"列名": "mean" | "median" | "drop"}。
 
         Returns:
-            (cleaned_df, report_dict_part) — 清洗后的 DataFrame 和缺失值处理报告。
+            (cleaned_df, report_dict) — 清洗后的 DataFrame 和缺失值处理报告。
+            报告格式: {"列名": "均值填充了 X 个缺失值", ...}
 
-        【待实现：数据清洗模块】
-        - "mean": 检查列是否为数值型，然后填充均值
-        - "median": 检查列是否为数值型，然后填充中位数
-        - "drop": 删除包含 NaN 的行（可定位到特定列的子集）
+        Raises:
+            ValueError: 非数值列使用 mean/median、列全为 NaN 时抛出。
         """
-        raise NotImplementedError("数据清洗模块开发人员需实现 _handle_missing")
+        df = df.copy()
+        report: dict = {}
 
-    def _detect_outliers_iqr(self, df: pd.DataFrame) -> tuple:
+        for col, strat in strategy.items():
+            if col not in df.columns:
+                continue
+
+            if strat == "mean":
+                # 检查是否为数值列
+                if not pd.api.types.is_numeric_dtype(df[col]):
+                    raise ValueError(
+                        f"列 '{col}' 不是数值类型，无法使用均值填充"
+                    )
+                nan_count = int(df[col].isna().sum())
+                if nan_count > 0:
+                    # 检查是否全为缺失值
+                    if nan_count == len(df[col]):
+                        raise ValueError(
+                            f"列 '{col}' 全为缺失值，无法计算均值"
+                        )
+                    df[col] = df[col].fillna(df[col].mean())
+                    report[col] = f"均值填充了 {nan_count} 个缺失值"
+
+            elif strat == "median":
+                # 检查是否为数值列
+                if not pd.api.types.is_numeric_dtype(df[col]):
+                    raise ValueError(
+                        f"列 '{col}' 不是数值类型，无法使用中位数填充"
+                    )
+                nan_count = int(df[col].isna().sum())
+                if nan_count > 0:
+                    # 检查是否全为缺失值
+                    if nan_count == len(df[col]):
+                        raise ValueError(
+                            f"列 '{col}' 全为缺失值，无法计算中位数"
+                        )
+                    df[col] = df[col].fillna(df[col].median())
+                    report[col] = f"中位数填充了 {nan_count} 个缺失值"
+
+            elif strat == "drop":
+                nan_count = int(df[col].isna().sum())
+                if nan_count > 0:
+                    df = df.dropna(subset=[col])
+                    report[col] = f"删除了 {nan_count} 个包含缺失值的行"
+
+            # 其他策略: 忽略
+
+        return df, report
+
+    def _detect_outliers_iqr(
+        self, df: pd.DataFrame
+    ) -> tuple[pd.DataFrame, int]:
         """
         使用 IQR 方法检测并移除异常值。
+
+        对所有数值列计算 Q1、Q3 和 IQR，移除任一数值列超出
+        [Q1 - 1.5*IQR, Q3 + 1.5*IQR] 范围的行。
 
         Args:
             df: 输入的 DataFrame。
 
         Returns:
             (cleaned_df, count) — 移除异常值后的 DataFrame 和移除的行数。
-
-        【待实现：数据清洗模块】
-        - 仅对数值列进行操作
-        - IQR = Q3 - Q1
-        - 下界 = Q1 - 1.5 * IQR, 上界 = Q3 + 1.5 * IQR
         """
-        raise NotImplementedError("数据清洗模块开发人员需实现 _detect_outliers_iqr")
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) == 0:
+            return df, 0
+
+        outlier_mask = pd.Series(False, index=df.index)
+
+        for col in numeric_cols:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower = Q1 - 1.5 * IQR
+            upper = Q3 + 1.5 * IQR
+            outlier_mask |= (df[col] < lower) | (df[col] > upper)
+
+        count = int(outlier_mask.sum())
+        df_clean = df[~outlier_mask].reset_index(drop=True)
+        return df_clean, count

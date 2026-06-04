@@ -33,11 +33,11 @@ def register_blueprints(app):
     app.register_blueprint(plot_bp)
     app.register_blueprint(analyze_bp)
     app.register_blueprint(export_bp)
+    from .auth import auth_bp
 
-    # 扩展阶段取消注释
-    # from .auth import auth_bp
+    app.register_blueprint(auth_bp)
+
     # from .history import history_bp
-    # app.register_blueprint(auth_bp)
     # app.register_blueprint(history_bp)
 
 

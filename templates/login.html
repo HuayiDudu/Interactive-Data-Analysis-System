@@ -147,9 +147,50 @@
             opacity: 1;
         }
 
-        /* ---- Enter 按钮 ---- */
-        .hero-enter-btn {
+        /* ---- 登录/注册表单 ---- */
+        .auth-form {
             pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-top: 36px;
+            transform: translateY(16px);
+            opacity: 0;
+            transition:
+                transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.45s ease-out;
+        }
+
+        .auth-form.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .auth-input {
+            width: 240px;
+            background: rgba(0, 212, 255, 0.04);
+            border: 1px solid rgba(0, 212, 255, 0.20);
+            border-radius: 2px;
+            padding: 10px 14px;
+            font-family: var(--font-body);
+            font-size: 0.82rem;
+            color: rgba(255, 255, 255, 0.75);
+            outline: none;
+            transition: border-color 0.3s ease, background 0.3s ease;
+        }
+
+        .auth-input::placeholder {
+            color: rgba(148, 163, 184, 0.40);
+        }
+
+        .auth-input:focus {
+            border-color: rgba(0, 212, 255, 0.60);
+            background: rgba(0, 212, 255, 0.08);
+        }
+
+        .auth-submit-btn {
+            width: 240px;
             background: rgba(0, 212, 255, 0.04);
             border: 1px solid rgba(0, 212, 255, 0.25);
             border-radius: 2px;
@@ -161,12 +202,7 @@
             text-transform: uppercase;
             color: rgba(255, 255, 255, 0.60);
             padding: 10px 48px;
-            margin-top: 36px;
-            transform: translateY(16px);
-            opacity: 0;
             transition:
-                transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
-                opacity 0.45s ease-out,
                 border-color 0.5s ease,
                 color 0.5s ease,
                 background 0.5s ease,
@@ -174,12 +210,7 @@
                 letter-spacing 0.5s ease;
         }
 
-        .hero-enter-btn.visible {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        .hero-enter-btn:hover {
+        .auth-submit-btn:hover {
             border-color: rgba(0, 212, 255, 0.60);
             background: rgba(0, 212, 255, 0.08);
             color: var(--accent);
@@ -189,9 +220,45 @@
                 inset 0 0 20px rgba(0, 212, 255, 0.04);
         }
 
-        .hero-enter-btn:active {
+        .auth-submit-btn:active {
             transform: scale(0.96);
             transition: transform 0.12s ease;
+        }
+
+        .auth-submit-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .auth-error {
+            width: 240px;
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            color: #ff6b6b;
+            text-align: center;
+            min-height: 1.2em;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .auth-error.visible {
+            opacity: 1;
+        }
+
+        .auth-toggle {
+            font-family: var(--font-body);
+            font-size: 0.72rem;
+            color: rgba(148, 163, 184, 0.50);
+        }
+
+        .auth-toggle a {
+            color: rgba(0, 212, 255, 0.60);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .auth-toggle a:hover {
+            color: var(--accent);
         }
 
         /* ==================================================================
@@ -225,9 +292,14 @@
         <h1 class="hero-title" id="hero-title">数据分析系统</h1>
         <div class="hero-divider" id="hero-divider"></div>
         <p class="hero-subtitle" id="hero-subtitle">Interactive Data Analysis System</p>
-        <button class="hero-enter-btn" id="hero-enter-btn" onclick="window.location.href='/app'">
-            Enter
-        </button>
+        <div class="auth-form" id="auth-form">
+            <input type="text" class="auth-input" id="auth-username" placeholder="用户名" autocomplete="username" />
+            <input type="password" class="auth-input" id="auth-password" placeholder="密码" autocomplete="current-password" />
+            <input type="password" class="auth-input" id="auth-confirm" placeholder="确认密码" autocomplete="new-password" style="display:none;" />
+            <div class="auth-error" id="auth-error"></div>
+            <button class="auth-submit-btn" id="auth-submit-btn">登 录</button>
+            <span class="auth-toggle" id="auth-toggle">没有账号？<a href="javascript:void(0)" id="auth-toggle-link">注册</a></span>
+        </div>
     </div>
 
     <!-- 版本号 -->
@@ -638,12 +710,97 @@
                 }, 80);
 
                 setTimeout(function () {
-                    document.getElementById("hero-enter-btn").classList.add("visible");
+                    document.getElementById("auth-form").classList.add("visible");
                 }, 160);
 
                 setTimeout(function () {
                     document.getElementById("version-tag").classList.add("visible");
                 }, 400);
+            }
+        })();
+    </script>
+
+    <!-- ================================================================
+         登录/注册表单逻辑
+         ================================================================ -->
+    <script>
+        (function () {
+            var isLoginMode = true;
+            var usernameInput = document.getElementById("auth-username");
+            var passwordInput = document.getElementById("auth-password");
+            var confirmInput = document.getElementById("auth-confirm");
+            var errorEl = document.getElementById("auth-error");
+            var submitBtn = document.getElementById("auth-submit-btn");
+            var toggleEl = document.getElementById("auth-toggle");
+            var toggleLink = document.getElementById("auth-toggle-link");
+
+            // 切换登录/注册模式
+            toggleLink.addEventListener("click", function toggleMode() {
+                isLoginMode = !isLoginMode;
+                if (isLoginMode) {
+                    confirmInput.style.display = "none";
+                    submitBtn.textContent = "登 录";
+                    toggleEl.firstChild.textContent = "没有账号？";
+                    toggleLink.textContent = "注册";
+                } else {
+                    confirmInput.style.display = "block";
+                    submitBtn.textContent = "注 册";
+                    toggleEl.firstChild.textContent = "已有账号？";
+                    toggleLink.textContent = "登录";
+                }
+                errorEl.classList.remove("visible");
+                errorEl.textContent = "";
+            });
+
+            // 提交表单
+            submitBtn.addEventListener("click", async function () {
+                var username = usernameInput.value.trim();
+                var password = passwordInput.value;
+
+                if (!username) { showError("请输入用户名"); return; }
+                if (!password) { showError("请输入密码"); return; }
+
+                if (!isLoginMode) {
+                    if (password !== confirmInput.value) { showError("两次密码输入不一致"); return; }
+                    if (password.length < 6) { showError("密码长度不能少于 6 个字符"); return; }
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = isLoginMode ? "登录中..." : "注册中...";
+                errorEl.classList.remove("visible");
+
+                try {
+                    var resp = await fetch(isLoginMode ? "/api/login" : "/api/register", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username: username, password: password }),
+                    });
+                    var result = await resp.json();
+
+                    if (result.status === "success") {
+                        window.location.href = "/app";
+                    } else {
+                        showError(result.message || "操作失败");
+                    }
+                } catch (_) {
+                    showError("网络错误，请稍后重试");
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = isLoginMode ? "登 录" : "注 册";
+                }
+            });
+
+            // Enter 键提交
+            passwordInput.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") submitBtn.click();
+            });
+            confirmInput.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") submitBtn.click();
+            });
+
+            function showError(msg) {
+                errorEl.textContent = msg;
+                errorEl.classList.add("visible");
             }
         })();
     </script>

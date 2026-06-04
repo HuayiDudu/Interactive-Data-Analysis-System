@@ -686,9 +686,49 @@ document.getElementById("btn-clear-history").addEventListener("click", function 
 });
 
 // ================================================================
+// 认证：登录态检查 & 登出
+// ================================================================
+
+/**
+ * 检查当前用户是否已登录，未登录则跳转回首页。
+ */
+async function checkAuth() {
+    try {
+        var resp = await fetch("/api/me");
+        if (resp.status === 401) {
+            window.location.href = "/";
+            return;
+        }
+        var result = await resp.json();
+        if (result.status === "success") {
+            var userInfo = document.getElementById("user-info");
+            var userName = document.getElementById("user-name");
+            if (userInfo && userName) {
+                userName.textContent = result.data.username;
+                userInfo.style.display = "flex";
+            }
+        } else {
+            window.location.href = "/";
+        }
+    } catch (_) {
+        window.location.href = "/";
+    }
+}
+
+document.addEventListener("click", function (e) {
+    var logoutBtn = document.getElementById("logout-btn");
+    if (logoutBtn && e.target === logoutBtn) {
+        fetch("/api/logout", { method: "POST" })
+            .then(function () { window.location.href = "/"; })
+            .catch(function () { window.location.href = "/"; });
+    }
+});
+
+// ================================================================
 // 初始化
 // ================================================================
 document.addEventListener("DOMContentLoaded", function () {
+    checkAuth();
     console.log("交互式数据分析系统已加载");
     switchView("data");
     setSysStatus("系统就绪");

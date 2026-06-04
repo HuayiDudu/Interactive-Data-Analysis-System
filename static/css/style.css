@@ -306,6 +306,65 @@ body {
 .sidebar-footer {
     padding: 18px 20px;
     border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.70rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.user-name {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.logout-btn {
+    background: rgba(244, 63, 94, 0.08);
+    border: 1px solid rgba(244, 63, 94, 0.20);
+    border-radius: 3px;
+    color: rgba(244, 63, 94, 0.60);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.25s var(--ease-out);
+    flex-shrink: 0;
+}
+
+.logout-btn:hover {
+    background: rgba(244, 63, 94, 0.18);
+    border-color: var(--error);
+    color: var(--error);
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.15);
 }
 
 .status-bar {

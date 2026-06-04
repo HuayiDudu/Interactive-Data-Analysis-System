@@ -223,7 +223,7 @@ function onUploadSuccess(data) {
 
     renderPreview(data);
     populateCleanOptions(data.columns);
-    populatePlotColumns(data.columns);
+    populatePlotColumns(data.columns, currentDtypes);
     populateAlgorithmParams("kmeans", data.columns);
 
     setNavStatus("upload", "COMPLETED");

@@ -6,7 +6,7 @@ routes/upload.py - 文件上传路由
 【负责人】数据管理模块开发人员
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 upload_bp = Blueprint("upload", __name__)
 
@@ -45,21 +45,23 @@ def upload():
 
     从 multipart 请求中获取文件，调用 DataService.upload() 解析并保存，
     返回数据集标识和预览信息。
-
-    【待实现：数据管理模块】
-    - 验证请求中是否包含文件
-    - 验证文件扩展名是否在允许范围内
-    - 获取 DataService 实例（通过 current_app 或依赖注入）
-    - 调用 data_service.upload(file) 获取结果
-    - 构造统一 JSON 响应
-    - 异常捕获并返回友好的错误信息
     """
-    # ================================================================
-    # 【待实现：数据管理模块】
-    # 1. 检查 request.files 中是否有文件 -> 若没有返回 400
-    # 2. 检查文件扩展名是否合法
-    # 3. 通过 current_app.data_service 获取 DataService 实例并调用 upload()
-    # 4. 捕获 ValueError/Exception，返回 {"status": "error", "message": "..."}
-    # 5. 返回 JSON 响应
-    # ================================================================
-    raise NotImplementedError("数据管理模块开发人员需实现 upload 路由")
+    if "file" not in request.files:
+        return jsonify({"status": "error", "message": "未找到上传文件"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"status": "error", "message": "文件名为空"}), 400
+
+    try:
+        data_service = current_app.data_service
+        dataset_ref, preview = data_service.upload(file)
+
+        return jsonify({
+            "status": "success",
+            "data": {"dataset_id": dataset_ref.id, **preview}
+        })
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"上传失败: {str(e)}"}), 500

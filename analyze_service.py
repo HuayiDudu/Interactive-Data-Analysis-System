@@ -349,7 +349,7 @@ def compare_regression(
     poly_x = x_cols[0]
     poly_name = f"多项式回归（{degree} 阶，基于 {poly_x}）"
     try:
-        poly_result = run_polynomial_regression(df, poly_x, y_col, degree)
+        poly_result = run_polynomial_regression(data, poly_x, y_col, degree)
         results[poly_name] = poly_result
         summary.append({
             "算法": poly_name,

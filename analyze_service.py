@@ -21,8 +21,8 @@ def run_kmeans(df: pd.DataFrame, columns: list, n_clusters: int) -> dict:
     """
     K-Means 聚类（含 Silhouette Score、Davies-Bouldin Score 效果评估）
 
-    FIX 1: 自动过滤非数值列，非数值列记录在 skipped_cols 中返回
-    FIX 2: K 值范围改为 2~10
+    自动过滤非数值列，非数值列记录在 skipped_cols 中返回。
+    K 值范围限制为 2~10。
 
     :param df: 数据集 DataFrame
     :param columns: 参与聚类的列名列表
@@ -31,11 +31,10 @@ def run_kmeans(df: pd.DataFrame, columns: list, n_clusters: int) -> dict:
     """
     if len(columns) < 1:
         raise ValueError("至少需要选择一列")
-    # FIX 2: 增加 K 值上限验证（验收标准要求 2~10）
     if not (2 <= n_clusters <= 10):
         raise ValueError("K 值应在 2~10 之间")
 
-    # FIX 1: 自动过滤非数值列
+    # 自动过滤非数值列
     numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
     skipped_cols = [c for c in columns if c not in numeric_cols]
     if not numeric_cols:
@@ -48,7 +47,6 @@ def run_kmeans(df: pd.DataFrame, columns: list, n_clusters: int) -> dict:
     model = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
     labels = model.fit_predict(data)
 
-    # 效果评估（需要至少 2 个有效簇）
     sil_score = None
     db_score = None
     if len(set(labels)) > 1:
@@ -60,7 +58,7 @@ def run_kmeans(df: pd.DataFrame, columns: list, n_clusters: int) -> dict:
         "centers": model.cluster_centers_.tolist(),
         "n_clusters": n_clusters,
         "columns": numeric_cols,
-        "skipped_cols": skipped_cols,    # 新增：被跳过的非数值列，供前端提示
+        "skipped_cols": skipped_cols,
         "data": data.values.tolist(),
         "inertia": round(float(model.inertia_), 4),
         "silhouette_score": sil_score,
@@ -77,7 +75,7 @@ def run_dbscan(
     """
     DBSCAN 密度聚类（含自动标准化，适合不规则形状簇）
 
-    FIX 1: 自动过滤非数值列，非数值列记录在 skipped_cols 中返回
+    自动过滤非数值列，非数值列记录在 skipped_cols 中返回。
 
     :param eps: 邻域搜索半径（针对标准化后数据）
     :param min_samples: 核心点所需最少邻居数
@@ -90,7 +88,7 @@ def run_dbscan(
     if min_samples < 1:
         raise ValueError("min_samples 至少为 1")
 
-    # FIX 1: 自动过滤非数值列
+    # 自动过滤非数值列
     numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
     skipped_cols = [c for c in columns if c not in numeric_cols]
     if not numeric_cols:
@@ -124,7 +122,7 @@ def run_dbscan(
         "n_clusters": n_clusters,
         "n_noise": n_noise,
         "columns": numeric_cols,
-        "skipped_cols": skipped_cols,    # 新增：被跳过的非数值列
+        "skipped_cols": skipped_cols,
         "data": data.values.tolist(),
         "silhouette_score": sil_score,
         "davies_bouldin_score": db_score,
@@ -201,8 +199,7 @@ def run_linear_regression(df: pd.DataFrame, x_cols: list, y_col: str) -> dict:
     """
     线性回归（支持多特征列，含 MAE、RMSE 误差指标）
 
-    FIX 3: 返回字段新增 coefficients（系数列表）和 r_squared（验收要求字段名）
-    FIX 4: x_cols 改为列表，支持多特征列
+    返回字段含 coefficients（系数列表）和 r_squared。
 
     :param x_cols: 自变量列名列表（支持多列）
     :param y_col:  因变量列名
@@ -228,11 +225,11 @@ def run_linear_regression(df: pd.DataFrame, x_cols: list, y_col: str) -> dict:
     rmse = round(float(np.sqrt(mean_squared_error(y, y_pred))), 6)
 
     return {
-        "coefficients": coefficients,               # 各特征系数列表（验收要求）
+        "coefficients": coefficients,
         "intercept": intercept,
-        "r_squared": r2,                            # 验收标准字段名
+        "r_squared": r2,
         "r2_score": r2,                             # 兼容旧字段名
-        "slope": coefficients[0] if len(coefficients) == 1 else None,  # 单变量时保留
+        "slope": coefficients[0] if len(coefficients) == 1 else None,
         "mae": mae,
         "rmse": rmse,
         "x_values": data[x_cols[0]].tolist() if len(x_cols) == 1 else None,
@@ -251,11 +248,11 @@ def run_polynomial_regression(
     degree: int = 2,
 ) -> dict:
     """
-    多项式回归（单特征，支持 2~5 阶），通过 sklearn Pipeline 实现
+    多项式回归（单特征，支持 2~5 阶），通过 sklearn Pipeline 实现。
 
-    FIX 5: include_bias 改为 False，避免 PolynomialFeatures 插入的常数列与
-           LinearRegression 自带的 intercept_ 重叠导致截距计算偏差。
-           修复后 coef_[i] 精确对应 x^(i+1) 项，intercept_ 是真正的截距。
+    include_bias=False 避免 PolynomialFeatures 插入的常数列与
+    LinearRegression 自带的 intercept_ 重叠。
+    coef_[i] 精确对应 x^(i+1) 项，intercept_ 是真正的截距。
 
     :param degree: 多项式阶数（2~5）
     """
@@ -269,7 +266,6 @@ def run_polynomial_regression(
     X = data[[x_col]].values
     y = data[y_col].values
 
-    # FIX 5: include_bias=False，由 LinearRegression 的 intercept_ 唯一承担截距
     model = make_pipeline(
         PolynomialFeatures(degree=degree, include_bias=False),
         LinearRegression(),
@@ -278,7 +274,6 @@ def run_polynomial_regression(
     y_pred = model.predict(X)
 
     lr_step = model.named_steps["linearregression"]
-    # include_bias=False 时：coef_[0] → x¹，coef_[1] → x²，以此类推
     coefficients = [round(float(c), 6) for c in lr_step.coef_]
     intercept = round(float(lr_step.intercept_), 6)
     r2 = round(float(r2_score(y, y_pred)), 6)
@@ -308,8 +303,7 @@ def compare_regression(
     """
     回归多算法对比：线性回归 vs Ridge vs Lasso vs 多项式回归
 
-    FIX 4: 接受 x_cols 列表；线性模型使用全部特征列，多项式回归使用第一列
-           （多项式回归本质上是单变量展开，多变量情形复杂度超出本模块范围）
+    线性模型使用全部特征列，多项式回归使用 x_cols[0]（单变量展开）。
 
     :param x_cols: 自变量列名列表
     :param y_col:  因变量列名
@@ -349,7 +343,7 @@ def compare_regression(
             "rmse": rmse,
             "y_predicted": [round(v, 4) for v in y_pred.tolist()],
         }
-        summary.append({"算法": name, "R² ↑": r2, "MAE ↓": mae, "RMSE ↓": rmse})
+        summary.append({"算法": name, "R² ↑": r2, "MAE ↓": mae, "RMSE ↓": rmse, "最优": ""})
 
     # 多项式回归单独处理：仅使用 x_cols[0]（单变量多项式展开）
     poly_x = x_cols[0]
@@ -362,11 +356,20 @@ def compare_regression(
             "R² ↑": poly_result["r2_score"],
             "MAE ↓": poly_result["mae"],
             "RMSE ↓": poly_result["rmse"],
+            "最优": "",
         })
     except Exception as e:
+        # FIX: 多项式失败时在 summary 里补一行，让前端能看到失败原因
         results[poly_name] = {"error": str(e)}
+        summary.append({
+            "算法": poly_name,
+            "R² ↑": "失败",
+            "MAE ↓": "失败",
+            "RMSE ↓": str(e),
+            "最优": "",
+        })
 
-    # 按 R² 降序标注最优算法
+    # 按 R² 降序标注最优算法（仅对成功行参与排名）
     valid_rows = [row for row in summary if isinstance(row.get("R² ↑"), float)]
     if valid_rows:
         best_name = max(valid_rows, key=lambda r: r["R² ↑"])["算法"]

@@ -108,7 +108,6 @@ const AnalyzeModule = (() => {
 
     const nClusters = parseInt(document.getElementById("kmeans-k").value) || 3;
 
-    // FIX 2: 前端同步校验 K 值范围
     if (nClusters < 2 || nClusters > 10) {
       alert("K 值应在 2～10 之间");
       return;
@@ -155,7 +154,10 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
-    const columns = _getSelectedColumns("kmeans-cols"); // 复用列选择框
+    // FIX 1: 改用 dbscan 独立的列选择框 ID "dbscan-cols"。
+    // 如果你的 HTML 中 DBSCAN 与 K-Means 共用同一个列选择框，
+    // 请将下面的 "dbscan-cols" 改回 "kmeans-cols" 并在 HTML 中保持一致。
+    const columns = _getSelectedColumns("dbscan-cols");
     if (!columns) return;
 
     const eps        = parseFloat(document.getElementById("dbscan-eps")?.value)         || 0.5;
@@ -205,6 +207,7 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
+    // 对比时复用 kmeans-cols，因为对比功能由同一个列选择区触发
     const columns = _getSelectedColumns("kmeans-cols");
     if (!columns) return;
 
@@ -250,7 +253,6 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
-    // FIX 4: 使用 xCols 数组支持多特征列
     const { xCols, yCol } = _getXYCols();
     if (!xCols || !yCol) return;
 
@@ -258,7 +260,7 @@ const AnalyzeModule = (() => {
     try {
       const data = await postJSON("/analyze/regression", {
         dataset_id: datasetId,
-        x_cols: xCols,   // FIX 4: 改为 x_cols 数组
+        x_cols: xCols,
         y_col: yCol,
       });
       renderRegressionResult(data);
@@ -268,18 +270,18 @@ const AnalyzeModule = (() => {
   }
 
   function renderRegressionResult(data) {
-    // FIX 3 + FIX 4: 支持多特征列方程，使用新字段名 coefficients / r_squared
+    // 支持多特征列方程，使用字段名 coefficients / r_squared
     let equation;
     if (data.x_cols && data.x_cols.length > 1) {
       // 多特征：Y = c1*x1 + c2*x2 + ... + intercept
       const terms = data.coefficients.map((c, i) => `${c} × ${data.x_cols[i]}`);
       equation = `Y = ${terms.join(" + ")} + ${data.intercept}`
-        .replace(/\+\s*-/g, "- ");   // FIX 6: 修复负系数显示
+        .replace(/\+\s*-/g, "- ");
     } else {
       // 单特征：Y = slope × x + intercept
       const xName = (data.x_cols && data.x_cols[0]) || data.x_col || "X";
       equation = `Y = ${data.coefficients[0]} × ${xName} + ${data.intercept}`
-        .replace(/\+\s*-/g, "- ");   // FIX 6: 修复负系数显示
+        .replace(/\+\s*-/g, "- ");
     }
 
     // 单特征显示"斜率 slope"，多特征逐列显示系数
@@ -308,7 +310,7 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
-    // FIX 4: 从多选框中取第一列用于多项式回归（单变量展开）
+    // 多项式回归仅取第一列作为单变量展开
     const { xCols, yCol } = _getXYCols();
     if (!xCols || !yCol) return;
 
@@ -318,7 +320,7 @@ const AnalyzeModule = (() => {
     try {
       const data = await postJSON("/analyze/poly_regression", {
         dataset_id: datasetId,
-        x_col: xCols[0],   // 多项式回归仅使用第一个 X 列
+        x_col: xCols[0],
         y_col: yCol,
         degree,
       });
@@ -329,23 +331,24 @@ const AnalyzeModule = (() => {
   }
 
   function renderPolyRegressionResult(data) {
-    // FIX 5 + FIX 6: 修复系数索引（include_bias=False 后 coefficients[i] → x^(i+1)）
-    //                同时处理负系数显示为 "- " 而非 "+ -"
+    // coefficients[i] 对应 x^(i+1)（include_bias=False 后的索引语义）
+    // 用 slice() 先复制一份再 reverse()，避免原地修改原数组
     const sup = ["", "", "²", "³", "⁴", "⁵"];
     const xName = data.x_col || "x";
 
     const terms = data.coefficients
       .map((c, i) => {
-        const power = i + 1;  // coefficients[0] 对应 x^1，以此类推
+        const power = i + 1;
         const xStr = power === 1
           ? xName
           : `${xName}${sup[power] ?? `^${power}`}`;
         return `${c}${xStr}`;
       })
-      .reverse();  // 高次项排在前面
+      .slice()    // FIX 2: 先复制，防止 reverse() 意外修改原数组
+      .reverse(); // 高次项排在前面
 
     const equation = `Y = ${terms.join(" + ")} + ${data.intercept}`
-      .replace(/\+\s*-/g, "- ");   // FIX 6: 负系数修复
+      .replace(/\+\s*-/g, "- ");
 
     document.getElementById("analyze-result").innerHTML = `
       <h5>多项式回归结果（${data.degree} 阶，基于 ${xName}）</h5>
@@ -364,7 +367,6 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
-    // FIX 4: 使用 xCols 数组
     const { xCols, yCol } = _getXYCols();
     if (!xCols || !yCol) return;
 
@@ -374,7 +376,7 @@ const AnalyzeModule = (() => {
     try {
       const data = await postJSON("/analyze/compare/regression", {
         dataset_id: datasetId,
-        x_cols: xCols,   // FIX 4: 改为 x_cols 数组
+        x_cols: xCols,
         y_col: yCol,
         degree,
       });
@@ -402,6 +404,12 @@ const AnalyzeModule = (() => {
   /** 读取多选列选择框，未选择时弹窗并返回 null */
   function _getSelectedColumns(selectId) {
     const el = document.getElementById(selectId);
+    if (!el) {
+      // FIX 1: 选择框 DOM 不存在时给出明确提示，而不是静默崩溃
+      console.error(`列选择框 #${selectId} 不存在，请检查 HTML`);
+      alert(`找不到列选择框（#${selectId}），请检查页面配置`);
+      return null;
+    }
     const cols = Array.from(el.selectedOptions).map(o => o.value);
     if (cols.length < 1) { alert("至少选择一列"); return null; }
     return cols;
@@ -409,25 +417,24 @@ const AnalyzeModule = (() => {
 
   /**
    * 读取回归 X/Y 列选择框。
-   * FIX 4: X 列改用 selectedOptions 读取，支持 <select multiple> 多选；
-   *        单选框场景下 selectedOptions 同样有效（返回含一个元素的数组）。
-   *        注意：HTML 中 #reg-x 需添加 multiple 属性才能多选。
+   * X 列用 selectedOptions 读取，支持 <select multiple> 多选；
+   * 单选框场景下 selectedOptions 同样有效（返回含一个元素的数组）。
+   * 注意：HTML 中 #reg-x 需添加 multiple 属性才能多选。
    *
-   * @returns {{ xCols: string[], yCol: string }}
+   * @returns {{ xCols: string[]|null, yCol: string|null }}
    */
   function _getXYCols() {
     const xEl = document.getElementById("reg-x");
-    // 兼容单选 / 多选：selectedOptions 在两种场景下均可用
     const xCols = Array.from(xEl.selectedOptions).map(o => o.value).filter(Boolean);
     const yCol = document.getElementById("reg-y").value;
 
     if (xCols.length === 0 || !yCol) {
       alert("请选择 X 列和 Y 列");
-      return {};
+      return { xCols: null, yCol: null };
     }
     if (xCols.includes(yCol)) {
       alert("Y 列不能与 X 列中任意列相同");
-      return {};
+      return { xCols: null, yCol: null };
     }
     return { xCols, yCol };
   }

@@ -38,6 +38,28 @@ def _validate_body(body: dict, required_keys: list):
             raise KeyError(f"缺少必填字段：{key}")
 
 
+def _parse_int(value, name: str, default: int) -> int:
+    """
+    安全解析整数参数。
+    转换失败时抛出 TypeError（400），而非 ValueError（422），
+    语义更准确（格式错误，而非值不合法）。
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise TypeError(f"{name} 必须是整数，收到：{value!r}")
+
+
+def _parse_float(value, name: str, default: float) -> float:
+    """
+    安全解析浮点参数，转换失败抛 TypeError（400）。
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise TypeError(f"{name} 必须是数字，收到：{value!r}")
+
+
 def _ok(data: dict):
     """统一成功响应"""
     return jsonify({"status": "ok", "data": data})
@@ -95,11 +117,14 @@ def kmeans():
     body = request.get_json(force=True)
     _validate_body(body, ["dataset_id", "columns"])
 
+    # FIX: 用 _parse_int 替代裸 int()，格式错误时返回 400 而非 422
+    n_clusters = _parse_int(body.get("n_clusters", 3), "n_clusters", 3)
+
     df = _load_df(body["dataset_id"])
     result = run_kmeans(
         df,
         columns=body["columns"],
-        n_clusters=int(body.get("n_clusters", 3)),
+        n_clusters=n_clusters,
     )
     return _ok(result)
 
@@ -121,12 +146,16 @@ def dbscan():
     body = request.get_json(force=True)
     _validate_body(body, ["dataset_id", "columns"])
 
+    # FIX: 用安全解析函数，格式错误时返回 400
+    eps         = _parse_float(body.get("eps", 0.5),         "eps",         0.5)
+    min_samples = _parse_int(body.get("min_samples", 5),     "min_samples", 5)
+
     df = _load_df(body["dataset_id"])
     result = run_dbscan(
         df,
         columns=body["columns"],
-        eps=float(body.get("eps", 0.5)),
-        min_samples=int(body.get("min_samples", 5)),
+        eps=eps,
+        min_samples=min_samples,
     )
     return _ok(result)
 
@@ -149,13 +178,18 @@ def compare_clustering_route():
     body = request.get_json(force=True)
     _validate_body(body, ["dataset_id", "columns"])
 
+    # FIX: 用安全解析函数
+    n_clusters  = _parse_int(body.get("n_clusters", 3),      "n_clusters",  3)
+    eps         = _parse_float(body.get("eps", 0.5),         "eps",         0.5)
+    min_samples = _parse_int(body.get("min_samples", 5),     "min_samples", 5)
+
     df = _load_df(body["dataset_id"])
     result = compare_clustering(
         df,
         columns=body["columns"],
-        n_clusters=int(body.get("n_clusters", 3)),
-        eps=float(body.get("eps", 0.5)),
-        min_samples=int(body.get("min_samples", 5)),
+        n_clusters=n_clusters,
+        eps=eps,
+        min_samples=min_samples,
     )
     return _ok(result)
 
@@ -169,16 +203,13 @@ def compare_clustering_route():
 def regression():
     """
     线性回归（支持多特征列）
-
-    FIX 4: x_col → x_cols（列表），支持多特征列输入
-
     请求体 JSON：
     {
       "dataset_id": "xxx",
-      "x_cols": ["age", "experience"],   ← 改为列表（单特征时传 ["age"] 即可）
+      "x_cols": ["age", "experience"],   ← 列表（单特征时传 ["age"] 即可）
       "y_col": "salary"
     }
-    返回字段新增：coefficients（系数列表）、r_squared（拟合优度）、mae、rmse
+    返回字段：coefficients（系数列表）、r_squared（拟合优度）、mae、rmse
     """
     body = request.get_json(force=True)
     _validate_body(body, ["dataset_id", "x_cols", "y_col"])
@@ -208,12 +239,15 @@ def poly_regression():
     body = request.get_json(force=True)
     _validate_body(body, ["dataset_id", "x_col", "y_col"])
 
+    # FIX: 用安全解析函数
+    degree = _parse_int(body.get("degree", 2), "degree", 2)
+
     df = _load_df(body["dataset_id"])
     result = run_polynomial_regression(
         df,
         x_col=body["x_col"],
         y_col=body["y_col"],
-        degree=int(body.get("degree", 2)),
+        degree=degree,
     )
     return _ok(result)
 
@@ -223,13 +257,10 @@ def poly_regression():
 def compare_regression_route():
     """
     回归多算法对比：线性回归 / Ridge / Lasso / 多项式回归
-
-    FIX 4: x_col → x_cols（列表），线性模型使用全部特征列，多项式使用第一列
-
     请求体 JSON：
     {
       "dataset_id": "xxx",
-      "x_cols": ["age"],                 ← 改为列表
+      "x_cols": ["age"],
       "y_col": "salary",
       "degree": 2              ← 多项式回归阶数，可选，默认 2
     }
@@ -242,11 +273,14 @@ def compare_regression_route():
     if not isinstance(x_cols, list) or len(x_cols) == 0:
         raise TypeError("x_cols 必须是非空列表")
 
+    # FIX: 用安全解析函数
+    degree = _parse_int(body.get("degree", 2), "degree", 2)
+
     df = _load_df(body["dataset_id"])
     result = compare_regression(
         df,
         x_cols=x_cols,
         y_col=body["y_col"],
-        degree=int(body.get("degree", 2)),
+        degree=degree,
     )
     return _ok(result)

@@ -6,7 +6,9 @@ routes/plot.py - 图表生成路由
 【负责人】可视化模块开发人员
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
+
+from value_objects import DatasetRef
 
 plot_bp = Blueprint("plot", __name__)
 
@@ -21,18 +23,10 @@ plot_bp = Blueprint("plot", __name__)
 #       "dataset_id": "d4e5f6...",
 #       "x": "A",
 #       "y": "B",
-#       "type": "scatter"   # "scatter" | "line" | "bar"
+#       "type": "scatter"    # "scatter" | "line" | "bar" | "pie"
 #     }
-#   成功响应 200 （Matplotlib 模式）:
-#     {
-#       "status": "success",
-#       "data": { "image_base64": "iVBORw0..." }
-#     }
-#   成功响应 200 （Plotly 模式）:
-#     {
-#       "status": "success",
-#       "data": { "plotly_json": {...} }
-#     }
+#   成功响应 200:
+#     { "status": "success", "data": { "plotly_json": {...} } }
 #   失败响应 400/500:
 #     { "status": "error", "message": "具体错误原因" }
 
@@ -42,20 +36,29 @@ def plot():
     """
     处理图表生成请求。
 
-    根据前端传递的 dataset_id、x/y 列名和图表类型，生成并返回图表数据。
-
-    【待实现：可视化模块】
-    - 解析 JSON 请求体
-    - 校验必填参数（dataset_id, x, y, type）
-    - 验证图表类型是否在支持范围内
-    - 获取 VisualizeService 实例并调用
+    解析 JSON 请求体，校验必填参数，调用 VisualizeService 生成 Plotly 图表。
     """
-    # ================================================================
-    # 【待实现：可视化模块】
-    # 1. 调用 request.get_json()
-    # 2. 校验必填参数（dataset_id, x, y, type）
-    # 3. 构造 DatasetRef
-    # 4. 通过 current_app.visualize_service 获取 VisualizeService 实例并调用
-    # 5. 返回 JSON 响应
-    # ================================================================
-    raise NotImplementedError("可视化模块开发人员需实现 plot 路由")
+    params = request.get_json(silent=True)
+    if not params:
+        return jsonify({"status": "error", "message": "请求体不能为空"}), 400
+
+    required = ["dataset_id", "x", "y", "type"]
+    for field in required:
+        if field not in params:
+            return jsonify({"status": "error", "message": f"缺少参数: {field}"}), 400
+
+    try:
+        dataset_ref = DatasetRef(params["dataset_id"])
+        visualize_service = current_app.visualize_service
+
+        # 提取额外自定义参数（除必填字段外的所有字段，透传给 Service）
+        extra = {k: v for k, v in params.items() if k not in required}
+
+        result = visualize_service.generate_plot(
+            dataset_ref, params["x"], params["y"], params["type"], **extra
+        )
+        return jsonify({"status": "success", "data": result})
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"服务器内部错误: {str(e)}"}), 500

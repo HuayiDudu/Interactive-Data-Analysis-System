@@ -95,6 +95,19 @@ class FileRepository(DataRepository):
         # 【待实现】可根据需要指定数据类型、编码等参数
         return pd.read_csv(filepath)
 
+    # ================================================================
+    # 用户管理（MVP 阶段暂不支持，抛出 NotImplementedError）
+    # ================================================================
+
+    def create_user(self, username: str, password_hash: str) -> int:
+        raise NotImplementedError("FileRepository 不支持用户管理")
+
+    def get_user_by_username(self, username: str) -> dict | None:
+        raise NotImplementedError("FileRepository 不支持用户管理")
+
+    def get_user_by_id(self, user_id: int) -> dict | None:
+        raise NotImplementedError("FileRepository 不支持用户管理")
+
     def delete_data(self, ref: DatasetRef) -> None:
         """
         删除引用对应的临时文件及映射。

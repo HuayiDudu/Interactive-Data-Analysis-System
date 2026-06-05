@@ -18,9 +18,12 @@
 | `config.py` | 全局配置 |
 | `value_objects.py` | DatasetRef 值对象 |
 | `repositories/base.py` | DataRepository 抽象接口（定义） |
+| `repositories/sqlite_repo.py` | SQLite + Parquet 持久化仓库（当前在用） |
 | `repositories/__init__.py` | 包导出 |
 | `services/__init__.py` | Service 导出 |
+| `services/auth_service.py` | 用户认证业务逻辑 |
 | `routes/__init__.py` | 蓝图注册 |
+| `routes/auth.py` | 用户认证路由 |
 | `app.py` | 应用工厂 + 依赖注入 |
 | `requirements.txt` | 依赖管理 |
 | `.gitignore` | Git 忽略规则 |
@@ -30,4 +33,4 @@
 
 - [通用规范](../项目开发规范(必看).md)
 - [集成指南](../项目集成指南(必看).md)
-- [进度跟踪](./进度跟踪.md)
+- [进度跟踪](../进度跟踪.md)

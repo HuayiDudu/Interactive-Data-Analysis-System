@@ -10,8 +10,12 @@ services/data_service.py - 数据管理服务
 from io import BytesIO
 from typing import Any
 
+import os
+
+import numpy as np
 import pandas as pd
 
+from config import ALLOWED_EXTENSIONS
 from repositories.base import DataRepository
 from value_objects import DatasetRef
 
@@ -61,6 +65,19 @@ class DataService:
         # ---------- 待实现：确定文件类型并解析为 DataFrame ----------
         df: pd.DataFrame = self._parse_file(file_storage, filename)
 
+        # 去重列名（源文件可能有同名列，如两个"年龄"）
+        if not df.columns.is_unique:
+            seen: dict[str, int] = {}
+            deduped: list[str] = []
+            for c in df.columns:
+                if c in seen:
+                    seen[c] += 1
+                    deduped.append(f"{c}_{seen[c]}")
+                else:
+                    seen[c] = 1
+                    deduped.append(c)
+            df.columns = deduped
+
         # ================================================================
         # 2. 通过数据访问层保存数据
         # 【说明】repo.save_data 由通用组件提供，此处直接调用
@@ -71,14 +88,61 @@ class DataService:
         # 3. 构造预览信息
         # 【负责人：】数据管理模块开发人员
         # ================================================================
+        preview_records = df.head(10).to_dict('records')
+        preview_data = []
+        for record in preview_records:
+            row = []
+            for col in df.columns:
+                value = record[col]
+                if pd.isna(value):
+                    row.append(None)
+                else:
+                    row.append(value)
+            preview_data.append(row)
         preview = {
             "columns": df.columns.tolist(),
-            "preview": df.head(5).values.tolist(),
+            "preview": preview_data,
             "shape": list(df.shape),
             "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+            "column_stats": self._compute_column_stats(df),
         }
 
         return dataset_ref, preview
+
+    def _compute_column_stats(self, df: pd.DataFrame) -> dict:
+        """
+        计算每列的缺失值和异常值统计，供前端清洗面板使用。
+
+        Returns:
+            {"列名": {"missing": int, "missing_pct": float, "outliers": int}, ...}
+        """
+        stats = {}
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        total_rows = len(df)
+
+        for col in df.columns:
+            col_stat = {}
+            # 缺失值统计
+            missing = int(df[col].isna().sum())
+            col_stat["missing"] = missing
+            col_stat["missing_pct"] = round(missing / total_rows * 100, 1) if total_rows > 0 else 0
+
+            # 异常值统计（仅数值列）
+            col_stat["outliers"] = 0
+            if col in numeric_cols and missing < total_rows:
+                valid = df[col].dropna()
+                if len(valid) > 0:
+                    q1 = valid.quantile(0.25)
+                    q3 = valid.quantile(0.75)
+                    iqr = q3 - q1
+                    lower = q1 - 1.5 * iqr
+                    upper = q3 + 1.5 * iqr
+                    col_stat["outliers"] = int(((valid < lower) | (valid > upper)).sum())
+
+            col_stat["is_numeric"] = col in numeric_cols
+            stats[col] = col_stat
+
+        return stats
 
     def export_data(
         self, dataset_ref: DatasetRef, format: str = "csv"
@@ -130,11 +194,65 @@ class DataService:
 
         Raises:
             ValueError: 文件类型不支持或解析失败。
-
-        【待实现】
-        - 扩展名检测（.csv / .xlsx / .xls）
-        - CSV 编码自动检测（chardet 或类似方法）
-        - pd.read_csv / pd.read_excel 的参数调优
         """
-        # ---------- 【待实现：数据管理模块】替换为实际解析逻辑 ----------
-        raise NotImplementedError("数据管理模块开发人员需实现 _parse_file 方法")
+        ext = os.path.splitext(filename)[1].lower()
+
+        if ext not in ALLOWED_EXTENSIONS:
+            raise ValueError(f"不支持的文件格式: {ext}")
+
+        try:
+            if ext == ".csv":
+                return self._parse_csv(file_storage)
+            elif ext in (".xlsx", ".xls"):
+                return self._parse_excel(file_storage, ext)
+            else:
+                raise ValueError(f"不支持的文件格式: {ext}")
+        except Exception as e:
+            raise ValueError(f"文件解析失败: {str(e)}")
+
+    def _parse_csv(self, file_storage: Any) -> pd.DataFrame:
+        """
+        解析 CSV 文件，支持 UTF-8 和 GBK 编码自动检测。
+
+        Args:
+            file_storage: Flask 上传文件对象。
+
+        Returns:
+            解析后的 pandas DataFrame。
+
+        Raises:
+            ValueError: 解析失败时抛出。
+        """
+        encodings = ["utf-8", "gbk", "utf-8-sig", "gb2312"]
+        last_exception = None
+
+        for encoding in encodings:
+            try:
+                file_storage.seek(0)
+                return pd.read_csv(file_storage, encoding=encoding)
+            except Exception as e:
+                last_exception = e
+                continue
+
+        raise ValueError(f"无法解析 CSV 文件，尝试了编码: {encodings}。错误: {str(last_exception)}")
+
+    def _parse_excel(self, file_storage: Any, ext: str) -> pd.DataFrame:
+        """
+        解析 Excel 文件。
+
+        Args:
+            file_storage: Flask 上传文件对象。
+            ext: 文件扩展名（.xlsx 或 .xls）。
+
+        Returns:
+            解析后的 pandas DataFrame。
+
+        Raises:
+            ValueError: 解析失败时抛出。
+        """
+        try:
+            file_storage.seek(0)
+            engine = "openpyxl" if ext == ".xlsx" else None
+            return pd.read_excel(file_storage, engine=engine)
+        except Exception as e:
+            raise ValueError(f"Excel 文件解析失败: {str(e)}")

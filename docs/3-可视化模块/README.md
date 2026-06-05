@@ -1,7 +1,8 @@
 # 可视化模块
 
 **所属**：可视化模块开发人员
-**负责内容**：散点图、折线图、柱状图生成（Matplotlib 或 Plotly）
+**负责内容**：散点图、折线图、柱状图、饼图（Plotly 交互式图表，支持自定义参数）
+**状态**：✅ 已完成
 
 ## 本目录文件
 
@@ -14,17 +15,16 @@
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `services/visualize_service.py` | **实现** | 图表生成核心逻辑 |
-| `routes/plot.py` | **实现** | POST /plot |
-| `static/js/plot.js` | **实现** | 前端图表交互逻辑 |
+| `services/visualize_service.py` | **实现** | Plotly 图表生成核心逻辑（含 **options 自定义参数） |
+| `routes/plot.py` | **实现** | POST /plot（支持 extra 参数透传） |
+| `static/js/plot.js` | **实现** | 前端 Plotly.js 渲染交互 |
 
-## 开发流程
+## 技术选型
 
-1. 从 `dev` 分支创建 `feat/可视化-xxx` 分支
-2. 实现 `visualize_service.py` → `plot.py` → `plot.js`
-3. 确定使用 Matplotlib 还是 Plotly，通知 Web 界面模块
-   - Matplotlib: 返回 base64 PNG，前端用 `<img>` 显示
-   - Plotly: 返回 Plotly JSON，前端需引入 Plotly.js
+**Plotly**（非 Matplotlib）：
+- 交互式图表（缩放、悬停提示、截图）
+- 返回 Plotly JSON，前端 `Plotly.newPlot()` 渲染
+- 已引入 `plotly-2.32.0.min.js` CDN
 
 ## 快速链接
 

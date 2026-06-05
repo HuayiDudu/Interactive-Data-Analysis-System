@@ -8,12 +8,14 @@ services 包 - 业务逻辑层
 【负责人】项目负责人（通用组件/集成）
 """
 
+from .auth_service import AuthService
 from .data_service import DataService
 from .clean_service import CleanService
 from .visualize_service import VisualizeService
 from .analyze_service import AnalyzeService
 
 __all__ = [
+    "AuthService",
     "DataService",
     "CleanService",
     "VisualizeService",

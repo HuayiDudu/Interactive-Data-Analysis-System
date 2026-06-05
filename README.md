@@ -6,7 +6,7 @@ WUT Python 课程实验 —— 交互式数据分析系统
 
 ## 项目简介
 
-基于 Web 的数据分析工具，支持上传 CSV/Excel 文件，进行数据清洗、可视化、机器学习分析（K-Means 聚类 / 线性回归），并导出结果。采用五层分层架构，MVP 阶段使用临时文件存储，扩展阶段可增加 SQLite、多用户登录等。
+基于 Web 的数据分析工具，支持上传 CSV/Excel 文件，进行数据清洗、可视化、机器学习分析（K-Means/DBSCAN 聚类、线性/多项式回归、多算法对比），并导出结果。采用五层分层架构，MVP 阶段使用临时文件存储，扩展阶段可增加 SQLite、多用户登录等。
 
 ## 技术栈
 
@@ -45,7 +45,7 @@ WUT Python 课程实验 —— 交互式数据分析系统
 | **数据管理模块** | 文件上传解析、数据预览、导出、文件数据仓库 | `repositories/file_repo.py`, `services/data_service.py`, `routes/upload.py`, `routes/export.py`, `static/js/upload.js` |
 | **数据清洗模块** | 缺失值处理、IQR 异常检测 | `services/clean_service.py`, `routes/clean.py`, `static/js/clean.js` |
 | **可视化模块** | 散点图/折线图/柱状图生成 | `services/visualize_service.py`, `routes/plot.py`, `static/js/plot.js` |
-| **分析功能模块** | K-Means 聚类、线性回归 | `services/analyze_service.py`, `routes/analyze.py`, `static/js/analyze.js` |
+| **分析功能模块** | K-Means/DBSCAN 聚类、线性/多项式回归、多算法对比 | `services/analyze_service.py`, `routes/analyze.py`, `static/js/analyze.js` |
 | **Web 界面模块** | HTML/CSS/JS 主控、流程集成 | `templates/index.html`, `static/css/style.css`, `static/js/app.js` |
 
 ## 快速开始
@@ -125,4 +125,4 @@ git config core.hooksPath githooks/
 - 多用户登录与权限管理
 - 清洗规则模板保存与应用
 - 自定义图表样式（标题、颜色、坐标轴）
-- 多算法对比与评估指标
+- 多算法对比与评估指标（已实现：聚类对比 + 回归对比）

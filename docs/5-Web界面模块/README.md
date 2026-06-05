@@ -1,38 +1,40 @@
 # Web 界面模块
 
 **所属**：Web 界面模块开发人员
-**负责内容**：HTML 页面结构、CSS 样式、前端主控逻辑（app.js）、集成各模块 JS
+**负责内容**：登录页 + 主界面 HTML/CSS、前端主控逻辑（app.js）、集成各模块 JS
+**状态**：✅ 已完成
 
 ## 本目录文件
 
 | 文件 | 说明 |
 |------|------|
 | `开发文档.md` | 完整工作手册：流程、实现步骤、接口规范、验收标准 |
+| `可视化自定义参数接入说明.md` | 可视化自定义参数的前端接入指导 |
+| `分析功能模块前端接入说明.md` | 分析功能模块的前端接入指导（6 种算法） |
 | `README.md` | 本文件 |
 
 ## 涉及代码文件
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `templates/index.html` | **实现** | 主页面（完整 6 步流程） |
-| `static/css/style.css` | **实现** | 全局样式 |
-| `static/js/app.js` | **实现** | 主控逻辑，调用各模块 JS |
+| `templates/login.html` | **实现** | 登录/注册页（星空动画 + 认证表单） |
+| `templates/index.html` | **实现** | 主界面（侧边栏 + 五个功能面板） |
+| `static/css/style.css` | **实现** | Cyber-luxury 暗色主题 |
+| `static/js/app.js` | **实现** | 主控逻辑（导航、toast、截图、登出） |
 
 ## 对接的各模块 JS
 
-| JS 文件 | 调用函数 | 所属模块 |
-|---------|---------|---------|
-| `upload.js` | `handleUpload()`, `renderPreview()`, `handleExport()` | 数据管理模块 |
-| `clean.js` | `populateCleanOptions()`, `collectCleanParams()`, `handleClean()` | 数据清洗模块 |
-| `plot.js` | `populatePlotColumns()`, `handlePlot()` | 可视化模块 |
-| `analyze.js` | `handleAnalyze()`, `populateAlgorithmParams()` | 分析功能模块 |
+| JS 文件 | 调用函数 | 所属模块 | 状态 |
+|---------|---------|---------|:----:|
+| `upload.js` | `handleUpload()`, `renderPreview()`, `handleExport()` | 数据管理模块 | ✅ |
+| `clean.js` | `populateCleanOptions()`, `collectCleanParams()`, `handleClean()` | 数据清洗模块 | ✅ |
+| `plot.js` | `populatePlotColumns()`, `handlePlot()` | 可视化模块 | ✅ |
+| `analyze.js` | `handleAnalyze()`, `populateAlgorithmParams()` | 分析功能模块 | ✅ |
 
-## 开发流程
+## 技术依赖
 
-1. 从 `dev` 分支创建 `feat/Web界面-xxx` 分支
-2. 完善 `index.html` 布局 → `style.css` 样式 → `app.js` 流程控制
-3. 与其他模块协商 JS 函数接口，各模块实现后联调
-4. 发起 PR → dev，通知项目负责人 Review
+- Bootstrap 5.3 + Plotly.js 2.32.0 + GSAP 3.12（CDN 引入）
+- Flask session 维护登录态，未登录跳转回 `/`
 
 ## 快速链接
 

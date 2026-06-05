@@ -9,7 +9,7 @@ app.py - Flask 应用工厂
 
 from flask import Flask, render_template
 
-from config import MAX_CONTENT_LENGTH, SECRET_KEY, UPLOAD_FOLDER
+from config import DATABASE_PATH, MAX_CONTENT_LENGTH, SECRET_KEY, UPLOAD_FOLDER
 
 
 def create_app() -> Flask:
@@ -32,15 +32,25 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = SECRET_KEY
     app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
     app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+    app.config["DATABASE_PATH"] = DATABASE_PATH
+    app.config["SESSION_PERMANENT"] = True
+    app.config["PERMANENT_SESSION_LIFETIME"] = 86400  # 24 小时
 
     # ================================================================
     # 2. 依赖注入：创建 Repository 和 Service 实例
     # 【负责人：】项目负责人（通用组件/集成）
     # ================================================================
-    from repositories import FileRepository
-    from services import DataService, CleanService, VisualizeService, AnalyzeService
+    from repositories import SQLiteRepository
+    from services import (
+        AuthService,
+        DataService,
+        CleanService,
+        VisualizeService,
+        AnalyzeService,
+    )
 
-    repo = FileRepository()
+    repo = SQLiteRepository(app.config["DATABASE_PATH"])
+    app.auth_service = AuthService(repo)
     app.data_service = DataService(repo)
     app.clean_service = CleanService(repo)
     app.visualize_service = VisualizeService(repo)
@@ -59,6 +69,10 @@ def create_app() -> Flask:
     # ================================================================
     @app.route("/")
     def index():
+        return render_template("login.html")
+
+    @app.route("/app")
+    def dashboard():
         return render_template("index.html")
 
     # ================================================================

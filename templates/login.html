@@ -311,6 +311,35 @@
             opacity: 0.40;
             transition: opacity 1.0s ease-out;
         }
+
+        /* ==================================================================
+           注册成功提示
+           ================================================================== */
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-80px);
+            z-index: 20;
+            font-family: var(--font-body);
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: #ffffff;
+            background: rgba(0, 200, 83, 0.15);
+            border: 1px solid rgba(0, 200, 83, 0.35);
+            border-radius: 6px;
+            padding: 10px 28px;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            opacity: 0;
+            transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                        opacity 0.40s ease-out;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 
@@ -338,6 +367,9 @@
 
     <!-- 版本号 -->
     <span class="version-tag" id="version-tag">v1.0.0 · WUT Python</span>
+
+    <!-- 注册成功提示 -->
+    <div class="toast" id="register-toast">注册成功，请登录</div>
 
     <!-- ================================================================
          Spiral Star Field — 1:1 port from 21st.dev Bleuje animation
@@ -619,34 +651,6 @@
             }
 
             // ============================================================
-            //  GSAP timeline — skip if coming from register
-            // ============================================================
-            var heroShown = false;
-            var skipAnimation = (new URLSearchParams(window.location.search)).get("registered") === "1";
-            if (skipAnimation) {
-                // 跳过螺旋动画，直接显示登录表单
-                heroShown = true;
-                showHero();
-            } else {
-                var tl = gsap.timeline();
-                tl.to(ctrl, {
-                    time: 1,
-                    duration: 6,
-                    ease: "none",
-                    onUpdate: function () {
-                        render();
-                        if (ctrl.time > 0.35 && !heroShown) {
-                            heroShown = true;
-                            showHero();
-                        }
-                    },
-                    onComplete: function () {
-                        render();
-                    }
-                });
-            }
-
-            // ============================================================
             //  Hero reveal & sparkle overlay
             // ============================================================
             var sparkleCanvas = document.getElementById("sparkle-canvas");
@@ -757,6 +761,41 @@
                 setTimeout(function () {
                     document.getElementById("version-tag").classList.add("visible");
                 }, 400);
+            }
+
+            // ============================================================
+            //  GSAP timeline — skip if coming from register
+            // ============================================================
+            var heroShown = false;
+            var skipAnimation = (new URLSearchParams(window.location.search)).get("registered") === "1";
+            if (skipAnimation) {
+                // 跳过螺旋动画，直接显示登录表单
+                render();
+                heroShown = true;
+                showHero();
+                // 显示注册成功提示，4 秒后自动消失
+                var toast = document.getElementById("register-toast");
+                if (toast) {
+                    toast.classList.add("visible");
+                    setTimeout(function () { toast.classList.remove("visible"); }, 4000);
+                }
+            } else {
+                var tl = gsap.timeline();
+                tl.to(ctrl, {
+                    time: 1,
+                    duration: 6,
+                    ease: "none",
+                    onUpdate: function () {
+                        render();
+                        if (ctrl.time > 0.35 && !heroShown) {
+                            heroShown = true;
+                            showHero();
+                        }
+                    },
+                    onComplete: function () {
+                        render();
+                    }
+                });
             }
         })();
     </script>

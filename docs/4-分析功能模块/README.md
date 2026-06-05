@@ -2,6 +2,7 @@
 
 **所属**：分析功能模块开发人员
 **负责内容**：K-Means 聚类、线性回归（可选）
+**状态**：⏳ 待开发（前端已就绪，后端为桩代码）
 
 ## 本目录文件
 
@@ -14,16 +15,11 @@
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `services/analyze_service.py` | **实现** | 分析核心逻辑：K-Means / 线性回归 |
-| `routes/analyze.py` | **实现** | POST /analyze |
-| `static/js/analyze.js` | **实现** | 前端分析参数配置和结果展示 |
+| `services/analyze_service.py` | **实现**（桩代码） | 分析核心逻辑：K-Means / 线性回归 |
+| `routes/analyze.py` | **实现**（桩代码） | POST /analyze（raise NotImplementedError） |
+| `static/js/analyze.js` | **已完成** | 前端分析参数配置和结果展示 |
 
-## 开发流程
-
-1. 从 `dev` 分支创建 `feat/分析功能-xxx` 分支
-2. 实现 `analyze_service.py` → `analyze.py` → `analyze.js`
-3. 注意：scikit-learn 返回的 numpy 类型必须转为 Python 原生类型
-4. 发起 PR → dev，通知项目负责人 Review
+> 其他所有模块（数据管理、清洗、可视化、认证、Web 界面）均已集成完成。这是唯一未完成后端的模块。
 
 ## 快速链接
 

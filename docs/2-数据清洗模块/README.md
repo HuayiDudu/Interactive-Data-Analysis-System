@@ -2,6 +2,7 @@
 
 **所属**：数据清洗模块开发人员
 **负责内容**：缺失值处理（均值/中位数/删除行）、异常值检测（IQR 方法）
+**状态**：✅ 已完成
 
 ## 本目录文件
 
@@ -17,13 +18,6 @@
 | `services/clean_service.py` | **实现** | 清洗核心逻辑：缺失值处理、IQR 异常检测 |
 | `routes/clean.py` | **实现** | POST /clean |
 | `static/js/clean.js` | **实现** | 前端清洗参数配置和请求逻辑 |
-
-## 开发流程
-
-1. 从 `dev` 分支创建 `feat/数据清洗-xxx` 分支
-2. 实现 `clean_service.py` → `clean.py` → `clean.js`
-3. 发起 PR → dev，通知项目负责人 Review
-4. 清洗操作生成新数据集，返回新 dataset_id
 
 ## 快速链接
 

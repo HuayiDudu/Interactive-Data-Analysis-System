@@ -153,7 +153,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
             margin-top: 36px;
             transform: translateY(16px);
             opacity: 0;
@@ -168,72 +168,94 @@
         }
 
         .auth-input {
-            width: 240px;
-            background: rgba(0, 212, 255, 0.04);
-            border: 1px solid rgba(0, 212, 255, 0.20);
-            border-radius: 2px;
-            padding: 10px 14px;
+            width: 300px;
+            background: rgba(0, 212, 255, 0.05);
+            border: 2px solid rgba(0, 212, 255, 0.35);
+            border-radius: 4px;
+            padding: 13px 16px;
             font-family: var(--font-body);
-            font-size: 0.82rem;
-            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: #ffffff;
             outline: none;
-            transition: border-color 0.3s ease, background 0.3s ease;
+            transition:
+                border-color 0.3s ease,
+                background 0.3s ease,
+                box-shadow 0.3s ease;
         }
 
         .auth-input::placeholder {
-            color: rgba(148, 163, 184, 0.40);
+            color: rgba(255, 255, 255, 0.40);
+            font-size: 0.88rem;
+            font-family: var(--font-body);
         }
 
         .auth-input:focus {
-            border-color: rgba(0, 212, 255, 0.60);
-            background: rgba(0, 212, 255, 0.08);
+            border-color: var(--accent);
+            background: rgba(0, 212, 255, 0.10);
+            box-shadow:
+                0 0 24px rgba(0, 212, 255, 0.18),
+                inset 0 0 18px rgba(0, 212, 255, 0.04);
         }
 
         .auth-submit-btn {
-            width: 240px;
-            background: rgba(0, 212, 255, 0.04);
-            border: 1px solid rgba(0, 212, 255, 0.25);
-            border-radius: 2px;
+            width: 300px;
+            background:
+                linear-gradient(180deg,
+                    rgba(0, 212, 255, 0.10) 0%,
+                    rgba(0, 212, 255, 0.04) 100%);
+            border: 2px solid rgba(0, 212, 255, 0.40);
+            border-radius: 4px;
             cursor: pointer;
             font-family: var(--font-mono);
-            font-size: 0.72rem;
-            font-weight: 400;
-            letter-spacing: 0.22em;
+            font-size: 0.80rem;
+            font-weight: 500;
+            letter-spacing: 0.28em;
             text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.60);
-            padding: 10px 48px;
+            color: #ffffff;
+            padding: 13px 48px;
+            box-shadow:
+                0 0 30px rgba(0, 212, 255, 0.06),
+                inset 0 1px 0 rgba(0, 212, 255, 0.08);
             transition:
-                border-color 0.5s ease,
-                color 0.5s ease,
-                background 0.5s ease,
-                box-shadow 0.5s ease,
-                letter-spacing 0.5s ease;
+                border-color 0.35s ease,
+                color 0.35s ease,
+                background 0.35s ease,
+                box-shadow 0.35s ease,
+                letter-spacing 0.35s ease,
+                transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .auth-submit-btn:hover {
-            border-color: rgba(0, 212, 255, 0.60);
-            background: rgba(0, 212, 255, 0.08);
-            color: var(--accent);
-            letter-spacing: 0.30em;
+            border-color: var(--accent);
+            background:
+                linear-gradient(180deg,
+                    rgba(0, 212, 255, 0.18) 0%,
+                    rgba(0, 212, 255, 0.08) 100%);
+            color: #ffffff;
+            letter-spacing: 0.36em;
             box-shadow:
-                0 0 20px rgba(0, 212, 255, 0.15),
-                inset 0 0 20px rgba(0, 212, 255, 0.04);
+                0 0 48px rgba(0, 212, 255, 0.22),
+                0 0 80px rgba(0, 212, 255, 0.08),
+                inset 0 1px 0 rgba(0, 212, 255, 0.15);
+            transform: translateY(-2px);
         }
 
         .auth-submit-btn:active {
-            transform: scale(0.96);
-            transition: transform 0.12s ease;
+            transform: scale(0.96) translateY(0);
+            transition: transform 0.10s ease;
         }
 
         .auth-submit-btn:disabled {
-            opacity: 0.4;
+            opacity: 0.35;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
         .auth-error {
-            width: 240px;
+            width: 300px;
             font-family: var(--font-body);
-            font-size: 0.75rem;
+            font-size: 0.80rem;
             color: #ff6b6b;
             text-align: center;
             min-height: 1.2em;
@@ -247,18 +269,27 @@
 
         .auth-toggle {
             font-family: var(--font-body);
-            font-size: 0.72rem;
-            color: rgba(148, 163, 184, 0.50);
+            font-size: 0.82rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.80);
+            letter-spacing: 0.02em;
+            margin-top: 4px;
         }
 
         .auth-toggle a {
-            color: rgba(0, 212, 255, 0.60);
+            color: var(--accent);
+            font-weight: 500;
             text-decoration: none;
-            transition: color 0.3s ease;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.30);
+            padding-bottom: 1px;
+            transition:
+                color 0.3s ease,
+                border-color 0.3s ease;
         }
 
         .auth-toggle a:hover {
-            color: var(--accent);
+            color: #ffffff;
+            border-color: #ffffff;
         }
 
         /* ==================================================================
@@ -294,11 +325,14 @@
         <p class="hero-subtitle" id="hero-subtitle">Interactive Data Analysis System</p>
         <div class="auth-form" id="auth-form">
             <input type="text" class="auth-input" id="auth-username" placeholder="用户名" autocomplete="username" />
-            <input type="password" class="auth-input" id="auth-password" placeholder="密码" autocomplete="current-password" />
-            <input type="password" class="auth-input" id="auth-confirm" placeholder="确认密码" autocomplete="new-password" style="display:none;" />
+            <input type="password" class="auth-input" id="auth-password" placeholder="密码"
+                autocomplete="current-password" />
+            <input type="password" class="auth-input" id="auth-confirm" placeholder="确认密码" autocomplete="new-password"
+                style="display:none;" />
             <div class="auth-error" id="auth-error"></div>
             <button class="auth-submit-btn" id="auth-submit-btn">登 录</button>
-            <span class="auth-toggle" id="auth-toggle">没有账号？<a href="javascript:void(0)" id="auth-toggle-link">注册</a></span>
+            <span class="auth-toggle" id="auth-toggle">没有账号？<a href="javascript:void(0)"
+                    id="auth-toggle-link">注册</a></span>
         </div>
     </div>
 
@@ -585,25 +619,32 @@
             }
 
             // ============================================================
-            //  GSAP timeline
+            //  GSAP timeline — skip if coming from register
             // ============================================================
             var heroShown = false;
-            var tl = gsap.timeline();
-            tl.to(ctrl, {
-                time: 1,
-                duration: 15,
-                ease: "none",
-                onUpdate: function () {
-                    render();
-                    if (ctrl.time > 0.75 && !heroShown) {
-                        heroShown = true;
-                        showHero();
+            var skipAnimation = (new URLSearchParams(window.location.search)).get("registered") === "1";
+            if (skipAnimation) {
+                // 跳过螺旋动画，直接显示登录表单
+                heroShown = true;
+                showHero();
+            } else {
+                var tl = gsap.timeline();
+                tl.to(ctrl, {
+                    time: 1,
+                    duration: 6,
+                    ease: "none",
+                    onUpdate: function () {
+                        render();
+                        if (ctrl.time > 0.35 && !heroShown) {
+                            heroShown = true;
+                            showHero();
+                        }
+                    },
+                    onComplete: function () {
+                        render();
                     }
-                },
-                onComplete: function () {
-                    render();
-                }
-            });
+                });
+            }
 
             // ============================================================
             //  Hero reveal & sparkle overlay
@@ -778,7 +819,11 @@
                     var result = await resp.json();
 
                     if (result.status === "success") {
-                        window.location.href = "/app";
+                        if (isLoginMode) {
+                            window.location.href = "/app";
+                        } else {
+                            window.location.href = "/?registered=1";
+                        }
                     } else {
                         showError(result.message || "操作失败");
                     }

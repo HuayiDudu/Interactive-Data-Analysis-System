@@ -314,20 +314,20 @@ body {
 .user-info {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding-bottom: 10px;
+    gap: 10px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--border-subtle);
 }
 
 .user-avatar {
-    width: 26px;
-    height: 26px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     background: var(--accent-dim);
     border: 1px solid var(--accent-border);
     color: var(--accent);
     font-family: var(--font-mono);
-    font-size: 0.70rem;
+    font-size: 0.85rem;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -338,7 +338,7 @@ body {
 .user-name {
     flex: 1;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -347,24 +347,24 @@ body {
 
 .logout-btn {
     background: rgba(244, 63, 94, 0.08);
-    border: 1px solid rgba(244, 63, 94, 0.20);
-    border-radius: 3px;
-    color: rgba(244, 63, 94, 0.60);
+    border: 1px solid rgba(244, 63, 94, 0.25);
+    border-radius: 4px;
+    color: rgba(244, 63, 94, 0.70);
     font-family: var(--font-mono);
-    font-size: 0.62rem;
-    padding: 4px 10px;
+    font-size: 0.72rem;
+    padding: 5px 14px;
     cursor: pointer;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     transition: all 0.25s var(--ease-out);
     flex-shrink: 0;
 }
 
 .logout-btn:hover {
-    background: rgba(244, 63, 94, 0.18);
+    background: rgba(244, 63, 94, 0.22);
     border-color: var(--error);
     color: var(--error);
-    box-shadow: 0 0 12px rgba(244, 63, 94, 0.15);
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.20);
 }
 
 .status-bar {
@@ -717,17 +717,6 @@ body {
     cursor: pointer;
 }
 
-.file-name-display {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--accent);
-    padding: 6px 16px;
-    background: var(--accent-dim);
-    border-radius: var(--radius-sm);
-    border: 1px solid rgba(0, 212, 255, 0.18);
-    box-shadow: 0 0 8px rgba(0, 212, 255, 0.08);
-}
-
 .upload-progress,
 .view-loading {
     display: flex;
@@ -1045,6 +1034,40 @@ body {
     justify-content: flex-end;
 }
 
+/* ================================================================
+   图表自定义参数面板（直接展示）
+   ================================================================ */
+.plot-custom-params {
+    margin-top: 20px;
+    padding: 16px 20px 20px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+}
+
+.check-group {
+    justify-content: flex-end;
+}
+
+.check-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.check-label input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    margin: 0;
+}
+
 .field-label {
     font-family: var(--font-mono);
     font-size: 0.74rem;
@@ -1303,6 +1326,56 @@ body {
     box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* ---------- 文本输入框 ---------- */
+.form-input-custom {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background:
+        linear-gradient(180deg, rgba(18, 27, 46, 0.95) 0%, rgba(13, 21, 37, 0.98) 100%);
+    color: var(--text-primary);
+    min-width: 200px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 2px 8px rgba(0, 0, 0, 0.35);
+    transition:
+        border-color 0.28s var(--ease-out),
+        box-shadow 0.28s var(--ease-out),
+        background 0.28s var(--ease-out);
+}
+
+.form-input-custom::placeholder {
+    color: rgba(148, 163, 184, 0.5);
+    font-size: 0.76rem;
+}
+
+.form-input-custom:hover {
+    border-color: rgba(0, 212, 255, 0.50);
+    background:
+        linear-gradient(180deg, rgba(18, 27, 46, 0.97) 0%, rgba(15, 24, 40, 0.98) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 0 24px rgba(0, 212, 255, 0.14),
+        0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.form-input-custom:focus {
+    outline: none;
+    border-color: var(--accent);
+    background:
+        linear-gradient(180deg, rgba(20, 30, 48, 0.96) 0%, rgba(15, 24, 40, 0.97) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 0 0 4px rgba(0, 212, 255, 0.08),
+        0 0 32px rgba(0, 212, 255, 0.16),
+        0 4px 16px rgba(0, 0, 0, 0.5);
+    color: var(--accent);
+}
+
 /* ================================================================
    .strategy-select — 清洗策略行内下拉框
    ================================================================ */
@@ -1554,89 +1627,358 @@ body {
 }
 
 /* ================================================================
-   历史记录卡片
+   历史记录卡片 — Premium Archive Design
+   设计方向：精炼归档质感 / 玻璃景深 / 时间线标记 / 微妙辉光
    ================================================================ */
 .history-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px;
 }
 
+/* ---- 卡片根容器 ---- */
 .history-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 18px 20px;
-    box-shadow: var(--shadow-xs);
-    transition: all 0.25s var(--ease-out);
-    animation: fadeSlideUp 0.4s var(--ease-out) both;
+    position: relative;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    animation: fadeSlideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition:
+        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.35s var(--ease-out);
+    overflow: visible;
+}
+
+.history-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: var(--radius-lg);
+    padding: 1px;
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.06) 0%,
+            rgba(255, 255, 255, 0.02) 40%,
+            rgba(0, 212, 255, 0.06) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 0;
+    transition: opacity 0.35s var(--ease-out);
+}
+
+.history-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(0, 212, 255, 0.08),
+        0 0 60px rgba(0, 212, 255, 0.05);
+}
+
+.history-card:hover::before {
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.10) 0%,
+            rgba(0, 212, 255, 0.08) 40%,
+            rgba(0, 212, 255, 0.15) 100%);
+}
+
+.history-card.expanded {
+    box-shadow:
+        0 16px 56px rgba(0, 0, 0, 0.50),
+        0 0 0 1px rgba(0, 212, 255, 0.14),
+        0 0 80px rgba(0, 212, 255, 0.07);
 }
 
 @keyframes fadeSlideUp {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(16px) scale(0.98);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
     }
 }
 
-.history-card:hover {
-    border-color: var(--border-muted);
-    box-shadow: var(--shadow-sm);
-    transform: translateY(-2px);
+/* ---- 卡片内表面 ---- */
+.hc-surface {
+    position: relative;
+    z-index: 1;
+    background:
+        linear-gradient(160deg,
+            rgba(18, 27, 46, 0.96) 0%,
+            rgba(13, 21, 37, 0.98) 100%);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
 }
 
-.history-card-header {
+/* ---- 头部区域 ---- */
+.hc-head {
+    padding: 22px 24px 18px;
+    position: relative;
+}
+
+.hc-head::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 24px;
+    right: 24px;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.04),
+            transparent);
+}
+
+/* 文件行 */
+.hc-file-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
-.history-card-type {
-    display: inline-flex;
+.hc-file-icon {
+    display: flex;
     align-items: center;
-    gap: 6px;
-    font-family: var(--font-mono);
-    font-size: 0.74rem;
-    font-weight: 500;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(0, 212, 255, 0.06);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    color: var(--accent-soft);
+    flex-shrink: 0;
 }
 
-.history-card-time {
-    font-family: var(--font-mono);
-    font-size: 0.66rem;
-    color: var(--text-muted);
+.hc-filename {
+    font-family: var(--font-display);
+    font-size: 0.90rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: #e8edf4;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.history-card-detail {
+/* 元信息行 */
+.hc-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 46px;
+    /* 对齐文件名（图标宽度 36 + gap 10） */
+}
+
+.hc-time {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: rgba(148, 163, 184, 0.50);
+    letter-spacing: 0.04em;
+}
+
+.hc-divider-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(148, 163, 184, 0.25);
+    flex-shrink: 0;
+}
+
+.hc-step-count {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: rgba(148, 163, 184, 0.50);
+    letter-spacing: 0.04em;
+}
+
+.hc-badge-chart {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.60rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+/* ---- 步骤操作条 ---- */
+.hc-step-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 24px 18px;
+}
+
+.hc-step-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    opacity: 0.55;
+    transition: opacity 0.2s;
+}
+
+.history-card:hover .hc-step-dot {
+    opacity: 0.85;
+}
+
+/* ---- 展开箭头 ---- */
+.hc-expand-hint {
+    display: flex;
+    justify-content: center;
+    padding: 0 0 12px;
+    color: rgba(148, 163, 184, 0.30);
+    transition:
+        color 0.35s var(--ease-out),
+        transform 0.35s var(--ease-out);
+}
+
+.history-card:hover .hc-expand-hint {
+    color: rgba(0, 212, 255, 0.45);
+}
+
+.history-card.expanded .hc-expand-hint {
+    transform: rotate(180deg);
+    color: var(--accent);
+}
+
+
+/* ================================================================
+   详情展开面板 — Timeline 风格
+   ================================================================ */
+.hc-detail-wrap {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hc-detail-inner {
+    padding: 4px 24px 24px;
+    background:
+        linear-gradient(180deg,
+            rgba(0, 0, 0, 0.18) 0%,
+            rgba(0, 0, 0, 0.08) 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    position: relative;
+}
+
+/* ---- 单条步骤行 ---- */
+.hc-step-row {
+    display: flex;
+    gap: 14px;
+    position: relative;
+    padding: 14px 0 0 0;
+}
+
+.hc-step-row:first-child {
+    padding-top: 16px;
+}
+
+/* 时间线竖线 — 通过伪元素在 marker 列绘制 */
+.hc-step-row:not(:last-child) .hc-step-marker::after {
+    content: '';
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: calc(100% + 14px);
+    background:
+        linear-gradient(180deg,
+            rgba(148, 163, 184, 0.20) 0%,
+            rgba(148, 163, 184, 0.04) 100%);
+}
+
+/* ---- 时间线节点列 ---- */
+.hc-step-marker {
+    position: relative;
+    flex-shrink: 0;
+    width: 20px;
+    display: flex;
+    justify-content: center;
+    padding-top: 2px;
+}
+
+.hc-step-dot-lg {
+    display: block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    position: relative;
+    z-index: 1;
+    transition: transform 0.25s var(--ease-spring);
+}
+
+.history-card.expanded .hc-step-row:hover .hc-step-dot-lg {
+    transform: scale(1.5);
+}
+
+/* ---- 步骤内容 ---- */
+.hc-step-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.hc-step-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.hc-step-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid;
+    background: transparent;
+}
+
+.hc-step-time {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: rgba(148, 163, 184, 0.40);
+    letter-spacing: 0.03em;
+}
+
+.hc-step-text {
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.55;
 }
 
-.history-card-chart {
-    margin-top: 12px;
+/* ---- 图表展示 ---- */
+.hc-chart-frame {
+    margin-top: 10px;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border-subtle);
     overflow: hidden;
-    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.12);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.02),
+        0 2px 12px rgba(0, 0, 0, 0.20);
 }
 
-.history-card-chart img {
+.hc-chart-frame img {
+    display: block;
     width: 100%;
     height: auto;
-    display: block;
+    opacity: 0.90;
 }
+
 
 /* ================================================================
    Toast

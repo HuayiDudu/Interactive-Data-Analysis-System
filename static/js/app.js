@@ -37,7 +37,8 @@ function saveAppState() {
         cleanCompleted: false,
         vizCompleted: false,
         lastView: currentView,
-        sessionId: _currentSessionId
+        sessionId: _currentSessionId,
+        columnStats: window._columnStats || {}
     };
     // 记录各步骤完成状态及状态文字
     ["upload", "clean", "visualize", "analyze"].forEach(function (v) {
@@ -73,6 +74,7 @@ function restoreAppState() {
         _lastShape = state.shape || null;
         currentView = state.lastView || "data";
         _currentSessionId = state.sessionId || null;
+        window._columnStats = state.columnStats || {};
 
         // 恢复预览表格
         if (state.previewHTML) {
@@ -125,6 +127,7 @@ function restoreAppState() {
             }
             if (typeof populateAlgorithmParams === "function") {
                 populateAlgorithmParams("kmeans", currentColumns);
+                _updateAlgoDescription("kmeans");
             }
         }
 
@@ -257,6 +260,30 @@ function markNavDone(viewName) {
 }
 
 /**
+ * 重置侧边栏所有步骤状态（新文件上传时调用）。
+ */
+function resetNavStatuses() {
+    ["upload", "clean", "visualize", "analyze", "history"].forEach(function (v) {
+        var el = document.getElementById("nav-status-" + v);
+        if (el) el.textContent = "";
+        var item = sidebarNav.querySelector('.nav-item[data-view="' + v + '"]');
+        if (item) item.classList.remove("done");
+    });
+    document.getElementById("preview-empty").style.display = "flex";
+    document.getElementById("plot-empty").style.display = "flex";
+    document.getElementById("analyze-empty").style.display = "flex";
+    // 清除上次的分析结果和图表内容（仅清文本，不破坏 DOM 结构）
+    var crc = document.getElementById("clean-report-content");
+    if (crc) crc.textContent = "";
+    var ar = document.getElementById("analyze-result");
+    if (ar) ar.style.display = "none";
+    var cr = document.getElementById("clean-report");
+    if (cr) cr.style.display = "none";
+    var pc = document.getElementById("plot-container");
+    if (pc) { pc.style.display = "none"; }
+}
+
+/**
  * 设置预览 badge。
  * @param {string} text
  */
@@ -374,10 +401,14 @@ btnUploadButton.addEventListener("click", async function () {
 });
 
 function onUploadSuccess(data) {
+    // 新文件上传：重置侧边栏状态，开始全新的分析流程
+    resetNavStatuses();
+
     currentDatasetId = data.dataset_id;
     currentColumns = data.columns;
     currentDtypes = data.dtypes || {};
     _lastShape = data.shape || null;
+    window._columnStats = data.column_stats || {};
 
     uploadProgress.style.display = "none";
     btnUploadButton.disabled = true;
@@ -387,6 +418,7 @@ function onUploadSuccess(data) {
     populateCleanOptions(data.columns);
     populatePlotColumns(data.columns, currentDtypes);
     populateAlgorithmParams("kmeans", data.columns);
+    _updateAlgoDescription("kmeans");
 
     setNavStatus("upload", "COMPLETED");
     markNavDone("upload");
@@ -398,9 +430,12 @@ function onUploadSuccess(data) {
 
     showSuccess("数据上传成功！" + data.shape[0] + " 行 × " + data.shape[1] + " 列");
 
-    // 开始新会话
+    // 开始新会话（必须在 _resetUploadText 之前，因为后者会清空 _lastFileName）
     startNewSession(_lastFileName);
     addRecord("upload", data.shape[0] + " 行 × " + data.shape[1] + " 列，共 " + data.columns.length + " 个字段");
+
+    // 上传成功后恢复上传栏提示文字，准备下次上传
+    _resetUploadText();
 
     saveAppState();
 }
@@ -446,13 +481,19 @@ document.getElementById("btn-clean").addEventListener("click", async function ()
 
         cleanLoading.style.display = "none";
         cleanReport.style.display = "block";
-        document.getElementById("clean-report-content").textContent =
-            JSON.stringify(result.report, null, 2);
+        var crc = document.getElementById("clean-report-content");
+        if (crc) { crc.textContent = JSON.stringify(result.report, null, 2); }
 
         setNavStatus("clean", "COMPLETED");
         markNavDone("clean");
         setSysStatus("清洗完成");
         showSuccess("数据清洗完成");
+
+        // 更新清洗面板中每列的处理结果标签
+        if (typeof updateCleanBadges === "function") {
+            updateCleanBadges(result.report);
+        }
+
         var cleanDetail = result.shape ? ("清洗后 " + result.shape[0] + " 行 × " + result.shape[1] + " 列") : "清洗完成";
         if (result.report) {
             var handled = [];
@@ -524,11 +565,14 @@ document.getElementById("btn-plot").addEventListener("click", async function () 
         if (result.plotly_json) {
             setTimeout(function () {
                 try {
-                    Plotly.toImage("plotly-chart", { format: "png", width: 400, height: 250 }).then(function (imgUrl) {
-                        updateLastPlotImage(imgUrl);
-                    }).catch(function () { });
+                    var chartEl = document.getElementById("plotly-chart");
+                    if (chartEl && typeof Plotly !== 'undefined') {
+                        Plotly.toImage(chartEl, { format: "png", width: 600, height: 375 }).then(function (imgUrl) {
+                            updateLastPlotImage(imgUrl);
+                        }).catch(function () { });
+                    }
                 } catch (e) { }
-            }, 500);
+            }, 800);
         }
     } catch (err) {
         plotLoading.style.display = "none";
@@ -548,6 +592,7 @@ document.getElementById("btn-plot").addEventListener("click", async function () 
 
 document.getElementById("algorithm-type").addEventListener("change", function () {
     populateAlgorithmParams(this.value, currentColumns);
+    _updateAlgoDescription(this.value);
 });
 
 var kSlider = document.getElementById("k-slider");
@@ -555,6 +600,51 @@ var kValueDisplay = document.getElementById("k-value-display");
 kSlider.addEventListener("input", function () {
     kValueDisplay.textContent = this.value;
 });
+
+var epsSlider = document.getElementById("dbscan-eps");
+if (epsSlider) {
+    epsSlider.addEventListener("input", function () {
+        var d = document.getElementById("eps-display");
+        if (d) d.textContent = parseFloat(this.value).toFixed(1);
+    });
+}
+
+var minSamplesSlider = document.getElementById("dbscan-min-samples");
+if (minSamplesSlider) {
+    minSamplesSlider.addEventListener("input", function () {
+        var d = document.getElementById("min-samples-display");
+        if (d) d.textContent = this.value;
+    });
+}
+
+var polyDegreeSlider = document.getElementById("poly-degree");
+if (polyDegreeSlider) {
+    polyDegreeSlider.addEventListener("input", function () {
+        var d = document.getElementById("poly-degree-display");
+        if (d) d.textContent = this.value;
+    });
+}
+
+var ALGO_DESCRIPTIONS = {
+    kmeans: "K-Means 聚类：将数据自动划分成 K 个群组，每个数据点归属到最近的中心点。适合客户分群、商品分类等场景。",
+    dbscan: "DBSCAN 密度聚类：基于数据密度自动发现簇，能识别噪声点（异常数据）。适合地理热点发现、欺诈检测。",
+    linear_regression: "线性回归：找到特征与目标之间的线性关系，用于预测连续值。适合房价预测、销售额预估。",
+    polynomial_regression: "多项式回归：用曲线拟合非线性关系，阶数越高弯曲度越大。适合药物剂量-疗效等曲线关系。",
+    compare_clustering: "聚类对比：同时运行 K-Means 和 DBSCAN，并排对比聚类指标，帮你选择更合适的算法。",
+    compare_regression: "回归对比：同时运行线性/Ridge/Lasso/多项式回归，自动标注 R² 最优算法。",
+};
+
+function _updateAlgoDescription(algo) {
+    var el = document.getElementById("algo-desc");
+    if (!el) return;
+    var desc = ALGO_DESCRIPTIONS[algo] || "";
+    if (desc) {
+        el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><span>' + desc + '</span>';
+        el.style.display = "flex";
+    } else {
+        el.style.display = "none";
+    }
+}
 
 document.getElementById("btn-analyze").addEventListener("click", async function () {
     if (!currentDatasetId) {
@@ -587,9 +677,15 @@ document.getElementById("btn-analyze").addEventListener("click", async function 
         setNavStatus("analyze", "COMPLETED");
         markNavDone("analyze");
         setSysStatus("分析完成");
-        var algoLabel = algorithm === "kmeans"
-            ? "K-Means (K=" + parseInt(document.getElementById("k-slider").value) + ")"
-            : "线性回归";
+        var algoLabels = {
+            kmeans: "K-Means (K=" + parseInt(document.getElementById("k-slider").value) + ")",
+            dbscan: "DBSCAN (eps=" + document.getElementById("dbscan-eps").value + ")",
+            linear_regression: "线性回归",
+            polynomial_regression: "多项式回归 (" + document.getElementById("poly-degree").value + "阶)",
+            compare_clustering: "聚类对比",
+            compare_regression: "回归对比",
+        };
+        var algoLabel = algoLabels[algorithm] || algorithm;
         addRecord("analyze", algoLabel);
         saveAppState();
     } catch (err) {

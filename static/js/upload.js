@@ -74,6 +74,15 @@ function renderPreview(data) {
     var body = document.getElementById("preview-body");
     body.innerHTML = "";
     if (data.preview && data.preview.length > 0) {
+        // 如果预览行数少于总行数，在表格上方显示醒目提示
+        var previewHint = document.getElementById("preview-hint");
+        if (previewHint && data.shape && data.preview.length < data.shape[0]) {
+            previewHint.style.display = "flex";
+            previewHint.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-right:8px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>仅展示前 <strong>' + data.preview.length + ' 行</strong>预览，完整数据（<strong>' + data.shape[0] + ' 行 × ' + data.shape[1] + ' 列</strong>）已全部导入';
+        } else if (previewHint) {
+            previewHint.style.display = "none";
+        }
+
         data.preview.forEach(function (row) {
             var tr = document.createElement("tr");
             row.forEach(function (cell) {

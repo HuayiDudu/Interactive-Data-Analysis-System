@@ -141,13 +141,39 @@ function _updateCustomParamVisibility(chartType) {
 }
 
 // ================================================================
-// 滑块值实时显示更新
+// 滑块值实时显示更新 + Plotly 图表实时变化 + 历史缩略图更新
 // ================================================================
+function _getChartEl() {
+    var el = document.getElementById('plotly-chart');
+    if (!el || el.style.display === 'none' || !el._fullLayout) return null;
+    return el;
+}
+
+/** 延迟更新历史记录中的图表缩略图（防抖 800ms） */
+var _debouncedCaptureImage = null;
+function _scheduleImageCapture() {
+    if (_debouncedCaptureImage) clearTimeout(_debouncedCaptureImage);
+    _debouncedCaptureImage = setTimeout(function () {
+        var el = _getChartEl();
+        if (!el || typeof Plotly === 'undefined') return;
+        Plotly.toImage(el, { format: 'png', width: 400, height: 250 }).then(function (imgUrl) {
+            if (typeof updateLastPlotImage === 'function') {
+                updateLastPlotImage(imgUrl);
+            }
+        }).catch(function () { });
+    }, 800);
+}
+
 var opacitySlider = document.getElementById('plot-opacity');
 if (opacitySlider) {
     opacitySlider.addEventListener('input', function () {
         var display = document.getElementById('opacity-display');
         if (display) { display.textContent = parseFloat(this.value).toFixed(1); }
+        var chart = _getChartEl();
+        if (chart && typeof Plotly !== 'undefined') {
+            Plotly.restyle(chart, { 'opacity': parseFloat(this.value) });
+            _scheduleImageCapture();
+        }
     });
 }
 
@@ -156,6 +182,11 @@ if (markerSizeSlider) {
     markerSizeSlider.addEventListener('input', function () {
         var display = document.getElementById('marker-size-display');
         if (display) { display.textContent = this.value; }
+        var chart = _getChartEl();
+        if (chart && typeof Plotly !== 'undefined') {
+            Plotly.restyle(chart, { 'marker.size': parseInt(this.value, 10) });
+            _scheduleImageCapture();
+        }
     });
 }
 
@@ -164,6 +195,11 @@ if (pieHoleSlider) {
     pieHoleSlider.addEventListener('input', function () {
         var display = document.getElementById('pie-hole-display');
         if (display) { display.textContent = parseFloat(this.value).toFixed(1); }
+        var chart = _getChartEl();
+        if (chart && typeof Plotly !== 'undefined') {
+            Plotly.restyle(chart, { 'hole': parseFloat(this.value) });
+            _scheduleImageCapture();
+        }
     });
 }
 
@@ -172,6 +208,11 @@ if (lineWidthSlider) {
     lineWidthSlider.addEventListener('input', function () {
         var display = document.getElementById('line-width-display');
         if (display) { display.textContent = this.value; }
+        var chart = _getChartEl();
+        if (chart && typeof Plotly !== 'undefined') {
+            Plotly.restyle(chart, { 'line.width': parseInt(this.value, 10) });
+            _scheduleImageCapture();
+        }
     });
 }
 
@@ -180,6 +221,45 @@ if (pieMaxCatSlider) {
     pieMaxCatSlider.addEventListener('input', function () {
         var display = document.getElementById('pie-max-cat-display');
         if (display) { display.textContent = this.value; }
+    });
+}
+
+// 折线图：显示标记点 checkbox 实时切换
+var showMarkersCb = document.getElementById('plot-show-markers');
+if (showMarkersCb) {
+    showMarkersCb.addEventListener('change', function () {
+        var chart = _getChartEl();
+        if (chart && typeof Plotly !== 'undefined') {
+            var mode = this.checked ? 'lines+markers' : 'lines';
+            Plotly.restyle(chart, { 'mode': mode });
+            _scheduleImageCapture();
+        }
+    });
+}
+
+// 折线图：填充面积 checkbox 实时切换
+var fillAreaCb = document.getElementById('plot-fill-area');
+if (fillAreaCb) {
+    fillAreaCb.addEventListener('change', function () {
+        var chart = _getChartEl();
+        if (chart && typeof Plotly !== 'undefined') {
+            var fillVal = this.checked ? 'tozeroy' : 'none';
+            // 只改最后一条 trace（填充面积 trace）
+            Plotly.restyle(chart, { 'fill': fillVal }, [chart.data ? chart.data.length - 1 : 0]);
+            _scheduleImageCapture();
+        }
+    });
+}
+
+// 柱状图/饼图：图例 checkbox 实时切换
+var showLegendCb = document.getElementById('plot-show-legend');
+if (showLegendCb) {
+    showLegendCb.addEventListener('change', function () {
+        var chart = _getChartEl();
+        if (chart && typeof Plotly !== 'undefined') {
+            Plotly.relayout(chart, { 'showlegend': this.checked });
+            _scheduleImageCapture();
+        }
     });
 }
 
@@ -265,6 +345,7 @@ var themeSelect = document.getElementById('plot-theme');
 if (themeSelect) {
     themeSelect.addEventListener('change', function () {
         _applyChartTheme(this.value);
+        _scheduleImageCapture();
     });
 }
 
@@ -273,6 +354,7 @@ var colorSchemeSelect = document.getElementById('plot-color-scheme');
 if (colorSchemeSelect) {
     colorSchemeSelect.addEventListener('change', function () {
         _applyChartColorScheme(this.value);
+        _scheduleImageCapture();
     });
 }
 

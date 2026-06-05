@@ -21,6 +21,9 @@ def run_kmeans(df: pd.DataFrame, columns: list, n_clusters: int) -> dict:
     """
     K-Means 聚类（含 Silhouette Score、Davies-Bouldin Score 效果评估）
 
+    FIX 1: 自动过滤非数值列，非数值列记录在 skipped_cols 中返回
+    FIX 2: K 值范围改为 2~10
+
     :param df: 数据集 DataFrame
     :param columns: 参与聚类的列名列表
     :param n_clusters: 聚类数量 K
@@ -28,10 +31,17 @@ def run_kmeans(df: pd.DataFrame, columns: list, n_clusters: int) -> dict:
     """
     if len(columns) < 1:
         raise ValueError("至少需要选择一列")
-    if n_clusters < 2:
-        raise ValueError("K 值至少为 2")
+    # FIX 2: 增加 K 值上限验证（验收标准要求 2~10）
+    if not (2 <= n_clusters <= 10):
+        raise ValueError("K 值应在 2~10 之间")
 
-    data = df[columns].dropna()
+    # FIX 1: 自动过滤非数值列
+    numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
+    skipped_cols = [c for c in columns if c not in numeric_cols]
+    if not numeric_cols:
+        raise ValueError("所选列中不含任何数值列，无法聚类")
+
+    data = df[numeric_cols].dropna()
     if len(data) < n_clusters:
         raise ValueError("数据行数不能少于 K 值")
 
@@ -49,11 +59,12 @@ def run_kmeans(df: pd.DataFrame, columns: list, n_clusters: int) -> dict:
         "labels": labels.tolist(),
         "centers": model.cluster_centers_.tolist(),
         "n_clusters": n_clusters,
-        "columns": columns,
+        "columns": numeric_cols,
+        "skipped_cols": skipped_cols,    # 新增：被跳过的非数值列，供前端提示
         "data": data.values.tolist(),
         "inertia": round(float(model.inertia_), 4),
-        "silhouette_score": sil_score,    # 轮廓系数：越接近 1 越好
-        "davies_bouldin_score": db_score, # DB 指数：越小越好
+        "silhouette_score": sil_score,
+        "davies_bouldin_score": db_score,
     }
 
 
@@ -66,6 +77,8 @@ def run_dbscan(
     """
     DBSCAN 密度聚类（含自动标准化，适合不规则形状簇）
 
+    FIX 1: 自动过滤非数值列，非数值列记录在 skipped_cols 中返回
+
     :param eps: 邻域搜索半径（针对标准化后数据）
     :param min_samples: 核心点所需最少邻居数
     :return: 聚类结果 + 评估指标字典，label=-1 表示噪声点
@@ -77,7 +90,13 @@ def run_dbscan(
     if min_samples < 1:
         raise ValueError("min_samples 至少为 1")
 
-    data = df[columns].dropna()
+    # FIX 1: 自动过滤非数值列
+    numeric_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
+    skipped_cols = [c for c in columns if c not in numeric_cols]
+    if not numeric_cols:
+        raise ValueError("所选列中不含任何数值列，无法聚类")
+
+    data = df[numeric_cols].dropna()
     if len(data) < min_samples:
         raise ValueError(f"有效数据行数（{len(data)}）不足 min_samples（{min_samples}）")
 
@@ -104,7 +123,8 @@ def run_dbscan(
         "labels": labels.tolist(),
         "n_clusters": n_clusters,
         "n_noise": n_noise,
-        "columns": columns,
+        "columns": numeric_cols,
+        "skipped_cols": skipped_cols,    # 新增：被跳过的非数值列
         "data": data.values.tolist(),
         "silhouette_score": sil_score,
         "davies_bouldin_score": db_score,
@@ -177,34 +197,49 @@ def compare_clustering(
 #  回归模块
 # ─────────────────────────────────────────────
 
-def run_linear_regression(df: pd.DataFrame, x_col: str, y_col: str) -> dict:
+def run_linear_regression(df: pd.DataFrame, x_cols: list, y_col: str) -> dict:
     """
-    线性回归（新增 MAE、RMSE 误差指标）
+    线性回归（支持多特征列，含 MAE、RMSE 误差指标）
 
-    :param x_col: 自变量列名
-    :param y_col: 因变量列名
+    FIX 3: 返回字段新增 coefficients（系数列表）和 r_squared（验收要求字段名）
+    FIX 4: x_cols 改为列表，支持多特征列
+
+    :param x_cols: 自变量列名列表（支持多列）
+    :param y_col:  因变量列名
     """
-    data = df[[x_col, y_col]].dropna()
+    if not x_cols:
+        raise ValueError("至少需要选择一个 X 列")
+
+    data = df[x_cols + [y_col]].dropna()
     if len(data) < 2:
         raise ValueError("有效数据行数不足，无法回归")
 
-    X = data[[x_col]].values
+    X = data[x_cols].values
     y = data[y_col].values
 
     model = LinearRegression()
     model.fit(X, y)
     y_pred = model.predict(X)
 
+    coefficients = [round(float(c), 6) for c in model.coef_]
+    intercept = round(float(model.intercept_), 6)
+    r2 = round(float(r2_score(y, y_pred)), 6)
+    mae = round(float(mean_absolute_error(y, y_pred)), 6)
+    rmse = round(float(np.sqrt(mean_squared_error(y, y_pred))), 6)
+
     return {
-        "slope": round(float(model.coef_[0]), 6),
-        "intercept": round(float(model.intercept_), 6),
-        "r2_score": round(float(r2_score(y, y_pred)), 6),   # 拟合优度，越接近 1 越好
-        "mae": round(float(mean_absolute_error(y, y_pred)), 6),  # 平均绝对误差，越小越好
-        "rmse": round(float(np.sqrt(mean_squared_error(y, y_pred))), 6),  # 均方根误差，越小越好
-        "x_values": data[x_col].tolist(),
+        "coefficients": coefficients,               # 各特征系数列表（验收要求）
+        "intercept": intercept,
+        "r_squared": r2,                            # 验收标准字段名
+        "r2_score": r2,                             # 兼容旧字段名
+        "slope": coefficients[0] if len(coefficients) == 1 else None,  # 单变量时保留
+        "mae": mae,
+        "rmse": rmse,
+        "x_values": data[x_cols[0]].tolist() if len(x_cols) == 1 else None,
         "y_values": data[y_col].tolist(),
         "y_predicted": [round(v, 4) for v in y_pred.tolist()],
-        "x_col": x_col,
+        "x_cols": x_cols,
+        "x_col": x_cols[0] if len(x_cols) == 1 else None,   # 兼容旧字段名
         "y_col": y_col,
     }
 
@@ -216,9 +251,13 @@ def run_polynomial_regression(
     degree: int = 2,
 ) -> dict:
     """
-    多项式回归（支持 2~5 阶），通过 sklearn Pipeline 实现
+    多项式回归（单特征，支持 2~5 阶），通过 sklearn Pipeline 实现
 
-    :param degree: 多项式阶数
+    FIX 5: include_bias 改为 False，避免 PolynomialFeatures 插入的常数列与
+           LinearRegression 自带的 intercept_ 重叠导致截距计算偏差。
+           修复后 coef_[i] 精确对应 x^(i+1) 项，intercept_ 是真正的截距。
+
+    :param degree: 多项式阶数（2~5）
     """
     if not (2 <= degree <= 5):
         raise ValueError("多项式阶数应在 2~5 之间")
@@ -230,20 +269,26 @@ def run_polynomial_regression(
     X = data[[x_col]].values
     y = data[y_col].values
 
-    model = make_pipeline(PolynomialFeatures(degree=degree, include_bias=True), LinearRegression())
+    # FIX 5: include_bias=False，由 LinearRegression 的 intercept_ 唯一承担截距
+    model = make_pipeline(
+        PolynomialFeatures(degree=degree, include_bias=False),
+        LinearRegression(),
+    )
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    # 提取各阶系数（index 0 = 截距对应项，实际来自 intercept_）
     lr_step = model.named_steps["linearregression"]
+    # include_bias=False 时：coef_[0] → x¹，coef_[1] → x²，以此类推
     coefficients = [round(float(c), 6) for c in lr_step.coef_]
     intercept = round(float(lr_step.intercept_), 6)
+    r2 = round(float(r2_score(y, y_pred)), 6)
 
     return {
         "degree": degree,
-        "coefficients": coefficients,   # 各阶系数，coefficients[i] 对应 x^i 项
+        "coefficients": coefficients,   # coefficients[i] 对应 x^(i+1) 项
         "intercept": intercept,
-        "r2_score": round(float(r2_score(y, y_pred)), 6),
+        "r2_score": r2,
+        "r_squared": r2,
         "mae": round(float(mean_absolute_error(y, y_pred)), 6),
         "rmse": round(float(np.sqrt(mean_squared_error(y, y_pred))), 6),
         "x_values": data[x_col].tolist(),
@@ -256,24 +301,32 @@ def run_polynomial_regression(
 
 def compare_regression(
     df: pd.DataFrame,
-    x_col: str,
+    x_cols: list,
     y_col: str,
     degree: int = 2,
 ) -> dict:
     """
     回归多算法对比：线性回归 vs Ridge vs Lasso vs 多项式回归
 
+    FIX 4: 接受 x_cols 列表；线性模型使用全部特征列，多项式回归使用第一列
+           （多项式回归本质上是单变量展开，多变量情形复杂度超出本模块范围）
+
+    :param x_cols: 自变量列名列表
+    :param y_col:  因变量列名
     :param degree: 多项式回归阶数
     :return: 各算法结果 + 统一 summary 对比表 + 原始数据点
     """
-    data = df[[x_col, y_col]].dropna()
+    if not x_cols:
+        raise ValueError("至少需要选择一个 X 列")
+
+    data = df[x_cols + [y_col]].dropna()
     if len(data) < 4:
         raise ValueError("有效数据行数不足，无法进行算法对比")
 
-    X = data[[x_col]].values
+    X = data[x_cols].values
     y = data[y_col].values
 
-    # 线性算法组（直接对 X 拟合）
+    # 线性算法组（使用全部 x_cols）
     linear_algos = {
         "线性回归":   LinearRegression(),
         "Ridge 回归": Ridge(alpha=1.0),
@@ -291,16 +344,18 @@ def compare_regression(
         rmse = round(float(np.sqrt(mean_squared_error(y, y_pred))), 6)
         results[name] = {
             "r2_score": r2,
+            "r_squared": r2,
             "mae": mae,
             "rmse": rmse,
             "y_predicted": [round(v, 4) for v in y_pred.tolist()],
         }
         summary.append({"算法": name, "R² ↑": r2, "MAE ↓": mae, "RMSE ↓": rmse})
 
-    # 多项式回归单独处理（使用 Pipeline）
-    poly_name = f"多项式回归（{degree} 阶）"
+    # 多项式回归单独处理：仅使用 x_cols[0]（单变量多项式展开）
+    poly_x = x_cols[0]
+    poly_name = f"多项式回归（{degree} 阶，基于 {poly_x}）"
     try:
-        poly_result = run_polynomial_regression(df, x_col, y_col, degree)
+        poly_result = run_polynomial_regression(df, poly_x, y_col, degree)
         results[poly_name] = poly_result
         summary.append({
             "算法": poly_name,
@@ -321,8 +376,9 @@ def compare_regression(
     return {
         "results": results,
         "summary": summary,
-        "x_values": data[x_col].tolist(),
+        "x_values": data[x_cols[0]].tolist(),
         "y_values": data[y_col].tolist(),
-        "x_col": x_col,
+        "x_cols": x_cols,
+        "x_col": x_cols[0],
         "y_col": y_col,
     }

@@ -80,6 +80,18 @@ const AnalyzeModule = (() => {
       </table>`;
   }
 
+  /**
+   * 若后端返回了被跳过的非数值列，渲染一条黄色提示。
+   * @param {string[]} skippedCols
+   */
+  function skippedColsWarning(skippedCols) {
+    if (!skippedCols || skippedCols.length === 0) return "";
+    return `
+      <div class="alert alert-warning py-1 mb-2">
+        以下非数值列已被自动跳过：<strong>${skippedCols.join("、")}</strong>
+      </div>`;
+  }
+
 
   // ══════════════════════════════════════════
   //  聚类模块
@@ -95,6 +107,12 @@ const AnalyzeModule = (() => {
     if (!columns) return;
 
     const nClusters = parseInt(document.getElementById("kmeans-k").value) || 3;
+
+    // FIX 2: 前端同步校验 K 值范围
+    if (nClusters < 2 || nClusters > 10) {
+      alert("K 值应在 2～10 之间");
+      return;
+    }
 
     showLoading("analyze-result");
     try {
@@ -118,6 +136,7 @@ const AnalyzeModule = (() => {
 
     document.getElementById("analyze-result").innerHTML = `
       <h5>K-Means 聚类结果（K=${data.n_clusters}）</h5>
+      ${skippedColsWarning(data.skipped_cols)}
       <ul class="list-group mb-3">
         ${metricBadge("Inertia（误差平方和）", data.inertia,          "越小越好")}
         ${metricBadge("轮廓系数 Silhouette",   data.silhouette_score, "越接近 1 越好")}
@@ -165,6 +184,7 @@ const AnalyzeModule = (() => {
 
     document.getElementById("analyze-result").innerHTML = `
       <h5>DBSCAN 聚类结果</h5>
+      ${skippedColsWarning(data.skipped_cols)}
       <p class="text-muted small">数据已标准化处理 | eps=${data.eps}，min_samples=${data.min_samples}</p>
       <ul class="list-group mb-3">
         ${metricBadge("发现簇数量",             data.n_clusters)}
@@ -230,13 +250,16 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
-    const { xCol, yCol } = _getXYCols();
-    if (!xCol || !yCol) return;
+    // FIX 4: 使用 xCols 数组支持多特征列
+    const { xCols, yCol } = _getXYCols();
+    if (!xCols || !yCol) return;
 
     showLoading("analyze-result");
     try {
       const data = await postJSON("/analyze/regression", {
-        dataset_id: datasetId, x_col: xCol, y_col: yCol,
+        dataset_id: datasetId,
+        x_cols: xCols,   // FIX 4: 改为 x_cols 数组
+        y_col: yCol,
       });
       renderRegressionResult(data);
     } catch (e) {
@@ -245,14 +268,34 @@ const AnalyzeModule = (() => {
   }
 
   function renderRegressionResult(data) {
-    const equation = `Y = ${data.slope} × ${data.x_col} + ${data.intercept}`;
+    // FIX 3 + FIX 4: 支持多特征列方程，使用新字段名 coefficients / r_squared
+    let equation;
+    if (data.x_cols && data.x_cols.length > 1) {
+      // 多特征：Y = c1*x1 + c2*x2 + ... + intercept
+      const terms = data.coefficients.map((c, i) => `${c} × ${data.x_cols[i]}`);
+      equation = `Y = ${terms.join(" + ")} + ${data.intercept}`
+        .replace(/\+\s*-/g, "- ");   // FIX 6: 修复负系数显示
+    } else {
+      // 单特征：Y = slope × x + intercept
+      const xName = (data.x_cols && data.x_cols[0]) || data.x_col || "X";
+      equation = `Y = ${data.coefficients[0]} × ${xName} + ${data.intercept}`
+        .replace(/\+\s*-/g, "- ");   // FIX 6: 修复负系数显示
+    }
+
+    // 单特征显示"斜率 slope"，多特征逐列显示系数
+    const coefItems = data.x_cols && data.x_cols.length > 1
+      ? data.coefficients.map((c, i) =>
+          metricBadge(`系数 ${data.x_cols[i]}`, c)
+        ).join("")
+      : metricBadge("斜率 slope", data.coefficients[0]);
+
     document.getElementById("analyze-result").innerHTML = `
       <h5>线性回归结果</h5>
       <p>回归方程：<code>${equation}</code></p>
       <ul class="list-group mb-3">
-        ${metricBadge("斜率 slope",        data.slope)}
+        ${coefItems}
         ${metricBadge("截距 intercept",    data.intercept)}
-        ${metricBadge("R² 拟合优度",       data.r2_score, "越接近 1 越好")}
+        ${metricBadge("R² 拟合优度",       data.r_squared ?? data.r2_score, "越接近 1 越好")}
         ${metricBadge("MAE 平均绝对误差",  data.mae,      "越小越好")}
         ${metricBadge("RMSE 均方根误差",   data.rmse,     "越小越好")}
       </ul>`;
@@ -265,15 +308,19 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
-    const { xCol, yCol } = _getXYCols();
-    if (!xCol || !yCol) return;
+    // FIX 4: 从多选框中取第一列用于多项式回归（单变量展开）
+    const { xCols, yCol } = _getXYCols();
+    if (!xCols || !yCol) return;
 
     const degree = parseInt(document.getElementById("poly-degree")?.value) || 2;
 
     showLoading("analyze-result");
     try {
       const data = await postJSON("/analyze/poly_regression", {
-        dataset_id: datasetId, x_col: xCol, y_col: yCol, degree,
+        dataset_id: datasetId,
+        x_col: xCols[0],   // 多项式回归仅使用第一个 X 列
+        y_col: yCol,
+        degree,
       });
       renderPolyRegressionResult(data);
     } catch (e) {
@@ -282,19 +329,29 @@ const AnalyzeModule = (() => {
   }
 
   function renderPolyRegressionResult(data) {
-    // 将系数数组拼成可读的多项式方程，例如：Y = 1.2x² + 3.4x + 5.6
+    // FIX 5 + FIX 6: 修复系数索引（include_bias=False 后 coefficients[i] → x^(i+1)）
+    //                同时处理负系数显示为 "- " 而非 "+ -"
     const sup = ["", "", "²", "³", "⁴", "⁵"];
+    const xName = data.x_col || "x";
+
     const terms = data.coefficients
-      .map((c, i) => i === 0 ? null : `${c}x${sup[i] ?? `^${i}`}`)
-      .filter(Boolean)
-      .reverse(); // 高次项排前面
-    const equation = `Y = ${terms.join(" + ")} + ${data.intercept}`;
+      .map((c, i) => {
+        const power = i + 1;  // coefficients[0] 对应 x^1，以此类推
+        const xStr = power === 1
+          ? xName
+          : `${xName}${sup[power] ?? `^${power}`}`;
+        return `${c}${xStr}`;
+      })
+      .reverse();  // 高次项排在前面
+
+    const equation = `Y = ${terms.join(" + ")} + ${data.intercept}`
+      .replace(/\+\s*-/g, "- ");   // FIX 6: 负系数修复
 
     document.getElementById("analyze-result").innerHTML = `
-      <h5>多项式回归结果（${data.degree} 阶）</h5>
+      <h5>多项式回归结果（${data.degree} 阶，基于 ${xName}）</h5>
       <p>回归方程：<code>${equation}</code></p>
       <ul class="list-group mb-3">
-        ${metricBadge("R² 拟合优度",      data.r2_score, "越接近 1 越好")}
+        ${metricBadge("R² 拟合优度",      data.r_squared ?? data.r2_score, "越接近 1 越好")}
         ${metricBadge("MAE 平均绝对误差", data.mae,      "越小越好")}
         ${metricBadge("RMSE 均方根误差",  data.rmse,     "越小越好")}
       </ul>`;
@@ -307,15 +364,19 @@ const AnalyzeModule = (() => {
     const datasetId = getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
 
-    const { xCol, yCol } = _getXYCols();
-    if (!xCol || !yCol) return;
+    // FIX 4: 使用 xCols 数组
+    const { xCols, yCol } = _getXYCols();
+    if (!xCols || !yCol) return;
 
     const degree = parseInt(document.getElementById("poly-degree")?.value) || 2;
 
     showLoading("analyze-result");
     try {
       const data = await postJSON("/analyze/compare/regression", {
-        dataset_id: datasetId, x_col: xCol, y_col: yCol, degree,
+        dataset_id: datasetId,
+        x_cols: xCols,   // FIX 4: 改为 x_cols 数组
+        y_col: yCol,
+        degree,
       });
       renderCompareRegression(data);
     } catch (e) {
@@ -346,13 +407,29 @@ const AnalyzeModule = (() => {
     return cols;
   }
 
-  /** 读取回归 X/Y 列选择框，校验不为空且不相同 */
+  /**
+   * 读取回归 X/Y 列选择框。
+   * FIX 4: X 列改用 selectedOptions 读取，支持 <select multiple> 多选；
+   *        单选框场景下 selectedOptions 同样有效（返回含一个元素的数组）。
+   *        注意：HTML 中 #reg-x 需添加 multiple 属性才能多选。
+   *
+   * @returns {{ xCols: string[], yCol: string }}
+   */
   function _getXYCols() {
-    const xCol = document.getElementById("reg-x").value;
+    const xEl = document.getElementById("reg-x");
+    // 兼容单选 / 多选：selectedOptions 在两种场景下均可用
+    const xCols = Array.from(xEl.selectedOptions).map(o => o.value).filter(Boolean);
     const yCol = document.getElementById("reg-y").value;
-    if (!xCol || !yCol) { alert("请选择 X 列和 Y 列"); return {}; }
-    if (xCol === yCol)  { alert("X 列和 Y 列不能相同"); return {}; }
-    return { xCol, yCol };
+
+    if (xCols.length === 0 || !yCol) {
+      alert("请选择 X 列和 Y 列");
+      return {};
+    }
+    if (xCols.includes(yCol)) {
+      alert("Y 列不能与 X 列中任意列相同");
+      return {};
+    }
+    return { xCols, yCol };
   }
 
 

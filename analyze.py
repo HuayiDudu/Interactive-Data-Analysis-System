@@ -88,9 +88,9 @@ def kmeans():
     {
       "dataset_id": "xxx",
       "columns": ["col1", "col2"],
-      "n_clusters": 3          ← 可选，默认 3
+      "n_clusters": 3          ← 可选，默认 3，范围 2~10
     }
-    返回字段新增：silhouette_score、davies_bouldin_score
+    返回字段：silhouette_score、davies_bouldin_score、skipped_cols（被跳过的非数值列）
     """
     body = request.get_json(force=True)
     _validate_body(body, ["dataset_id", "columns"])
@@ -116,7 +116,7 @@ def dbscan():
       "eps": 0.5,              ← 可选，默认 0.5（针对标准化后数据）
       "min_samples": 5         ← 可选，默认 5
     }
-    label=-1 的点为噪声点，前端渲染时可单独标色
+    label=-1 的点为噪声点；返回 skipped_cols 告知跳过的非数值列
     """
     body = request.get_json(force=True)
     _validate_body(body, ["dataset_id", "columns"])
@@ -168,20 +168,27 @@ def compare_clustering_route():
 @handle_errors
 def regression():
     """
-    线性回归
+    线性回归（支持多特征列）
+
+    FIX 4: x_col → x_cols（列表），支持多特征列输入
+
     请求体 JSON：
     {
       "dataset_id": "xxx",
-      "x_col": "age",
+      "x_cols": ["age", "experience"],   ← 改为列表（单特征时传 ["age"] 即可）
       "y_col": "salary"
     }
-    返回字段新增：mae、rmse
+    返回字段新增：coefficients（系数列表）、r_squared（拟合优度）、mae、rmse
     """
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "x_col", "y_col"])
+    _validate_body(body, ["dataset_id", "x_cols", "y_col"])
+
+    x_cols = body["x_cols"]
+    if not isinstance(x_cols, list) or len(x_cols) == 0:
+        raise TypeError("x_cols 必须是非空列表")
 
     df = _load_df(body["dataset_id"])
-    result = run_linear_regression(df, body["x_col"], body["y_col"])
+    result = run_linear_regression(df, x_cols, body["y_col"])
     return _ok(result)
 
 
@@ -189,7 +196,7 @@ def regression():
 @handle_errors
 def poly_regression():
     """
-    多项式回归
+    多项式回归（单特征）
     请求体 JSON：
     {
       "dataset_id": "xxx",
@@ -216,22 +223,29 @@ def poly_regression():
 def compare_regression_route():
     """
     回归多算法对比：线性回归 / Ridge / Lasso / 多项式回归
+
+    FIX 4: x_col → x_cols（列表），线性模型使用全部特征列，多项式使用第一列
+
     请求体 JSON：
     {
       "dataset_id": "xxx",
-      "x_col": "age",
+      "x_cols": ["age"],                 ← 改为列表
       "y_col": "salary",
       "degree": 2              ← 多项式回归阶数，可选，默认 2
     }
     返回 summary 列表已按 R² 标注最优算法（"最优": "✓"）
     """
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "x_col", "y_col"])
+    _validate_body(body, ["dataset_id", "x_cols", "y_col"])
+
+    x_cols = body["x_cols"]
+    if not isinstance(x_cols, list) or len(x_cols) == 0:
+        raise TypeError("x_cols 必须是非空列表")
 
     df = _load_df(body["dataset_id"])
     result = compare_regression(
         df,
-        x_col=body["x_col"],
+        x_cols=x_cols,
         y_col=body["y_col"],
         degree=int(body.get("degree", 2)),
     )

@@ -14,6 +14,142 @@ let currentDatasetId = null;
 let currentColumns = [];
 let currentDtypes = {};
 let currentView = "upload";
+let _appStateLoaded = false;
+
+// ================================================================
+// 状态持久化（localStorage）
+// ================================================================
+
+/** 保存当前应用状态到 localStorage，刷新后可恢复 */
+function saveAppState() {
+    var state = {
+        datasetId: currentDatasetId,
+        columns: currentColumns,
+        dtypes: currentDtypes,
+        fileName: _lastFileName || "",
+        shape: _lastShape || null,
+        previewHTML: (function () {
+            var tbl = document.getElementById("preview-table");
+            return tbl ? tbl.outerHTML : "";
+        })(),
+        navDone: {},
+        navStatus: {},
+        cleanCompleted: false,
+        vizCompleted: false,
+        lastView: currentView,
+        sessionId: _currentSessionId
+    };
+    // 记录各步骤完成状态及状态文字
+    ["upload", "clean", "visualize", "analyze"].forEach(function (v) {
+        var item = sidebarNav.querySelector('.nav-item[data-view="' + v + '"]');
+        if (item && item.classList.contains("done")) {
+            state.navDone[v] = true;
+        }
+        var statusEl = document.getElementById("nav-status-" + v);
+        if (statusEl && statusEl.textContent) {
+            state.navStatus[v] = statusEl.textContent;
+        }
+    });
+    var cleaned = document.getElementById("clean-report");
+    if (cleaned && cleaned.style.display !== "none") {
+        state.cleanCompleted = true;
+        state.cleanReportHTML = cleaned.innerHTML;
+    }
+    localStorage.setItem("idas_app_state", JSON.stringify(state));
+}
+
+/** 从 localStorage 恢复应用状态 */
+function restoreAppState() {
+    var raw = localStorage.getItem("idas_app_state");
+    if (!raw) return false;
+    try {
+        var state = JSON.parse(raw);
+        if (!state.datasetId) return false;
+
+        currentDatasetId = state.datasetId;
+        currentColumns = state.columns || [];
+        currentDtypes = state.dtypes || {};
+        _lastFileName = state.fileName || "";
+        _lastShape = state.shape || null;
+        currentView = state.lastView || "data";
+        _currentSessionId = state.sessionId || null;
+
+        // 恢复预览表格
+        if (state.previewHTML) {
+            var temp = document.createElement("div");
+            temp.innerHTML = state.previewHTML;
+            var newTable = temp.querySelector("table");
+            var oldTable = document.getElementById("preview-table");
+            if (newTable && oldTable && oldTable.parentNode) {
+                oldTable.parentNode.replaceChild(newTable, oldTable);
+            }
+            document.getElementById("preview-empty").style.display = "none";
+        }
+
+        // 恢复导航完成状态
+        if (state.navDone) {
+            Object.keys(state.navDone).forEach(function (v) {
+                if (state.navDone[v]) markNavDone(v);
+            });
+        }
+
+        // 恢复导航状态文字（COMPLETED 等）
+        if (state.navStatus) {
+            Object.keys(state.navStatus).forEach(function (v) {
+                setNavStatus(v, state.navStatus[v]);
+            });
+        }
+
+        // 恢复数据集信息显示
+        if (state.shape) {
+            setSysStatus("数据已就绪 — " + state.shape[0] + " 行 × " + state.shape[1] + " 列");
+            setNavStatus("upload", "COMPLETED");
+            markNavDone("upload");
+            document.getElementById("preview-empty").style.display = "none";
+            document.getElementById("plot-empty").style.display = "none";
+            document.getElementById("analyze-empty").style.display = "none";
+        }
+
+        // 恢复文件名显示
+        if (_lastFileName && state.shape) {
+            _replaceUploadTextWithFileName(_lastFileName);
+        }
+
+        // 初始化各模块下拉框
+        if (currentColumns.length > 0) {
+            if (typeof populateCleanOptions === "function") {
+                populateCleanOptions(currentColumns);
+            }
+            if (typeof populatePlotColumns === "function") {
+                populatePlotColumns(currentColumns, currentDtypes);
+            }
+            if (typeof populateAlgorithmParams === "function") {
+                populateAlgorithmParams("kmeans", currentColumns);
+            }
+        }
+
+        // 恢复清洗报告
+        if (state.cleanCompleted && state.cleanReportHTML) {
+            var cr = document.getElementById("clean-report");
+            if (cr) {
+                cr.innerHTML = state.cleanReportHTML;
+                cr.style.display = "block";
+            }
+        }
+
+        // 切到上次的视图
+        switchView(currentView);
+
+        return true;
+    } catch (e) {
+        console.error("状态恢复失败:", e);
+        localStorage.removeItem("idas_app_state");
+        return false;
+    }
+}
+
+var _lastFileName = "";
+var _lastShape = null;
 
 // ================================================================
 // DOM 元素缓存
@@ -22,7 +158,6 @@ const fileInput = document.getElementById("file-input");
 const btnUploadButton = document.getElementById("btn-upload");
 const uploadZone = document.getElementById("upload-zone");
 const uploadProgress = document.getElementById("upload-progress");
-const fileNameDisplay = document.getElementById("file-name-display");
 const errorToast = document.getElementById("error-toast");
 const errorToastMsg = document.getElementById("error-toast-msg");
 const successToast = document.getElementById("success-toast");
@@ -153,11 +288,10 @@ sidebarNav.addEventListener("click", function (e) {
 fileInput.addEventListener("change", function () {
     if (this.files.length > 0) {
         btnUploadButton.disabled = false;
-        fileNameDisplay.textContent = this.files[0].name;
-        fileNameDisplay.style.display = "inline-block";
+        _replaceUploadTextWithFileName(this.files[0].name);
     } else {
         btnUploadButton.disabled = true;
-        fileNameDisplay.style.display = "none";
+        _resetUploadText();
     }
 });
 
@@ -182,10 +316,37 @@ uploadZone.addEventListener("drop", function (e) {
     if (e.dataTransfer.files.length > 0) {
         fileInput.files = e.dataTransfer.files;
         btnUploadButton.disabled = false;
-        fileNameDisplay.textContent = e.dataTransfer.files[0].name;
-        fileNameDisplay.style.display = "inline-block";
+        _replaceUploadTextWithFileName(e.dataTransfer.files[0].name);
     }
 });
+
+/**
+ * 用文件名替换上传区域的"拖拽或点击上传"文字
+ */
+function _replaceUploadTextWithFileName(name) {
+    _lastFileName = name;
+    var textEl = uploadZone.querySelector(".upload-compact-text");
+    if (textEl) {
+        textEl.textContent = name;
+        textEl.style.color = "var(--accent)";
+        textEl.style.fontFamily = "var(--font-mono)";
+        textEl.style.fontSize = "0.78rem";
+    }
+}
+
+/**
+ * 恢复上传区域的原始提示文字
+ */
+function _resetUploadText() {
+    var textEl = uploadZone.querySelector(".upload-compact-text");
+    if (textEl) {
+        textEl.textContent = "拖拽或点击上传";
+        textEl.style.color = "";
+        textEl.style.fontFamily = "";
+        textEl.style.fontSize = "";
+    }
+    _lastFileName = "";
+}
 
 btnUploadButton.addEventListener("click", async function () {
     var file = fileInput.files[0];
@@ -216,6 +377,7 @@ function onUploadSuccess(data) {
     currentDatasetId = data.dataset_id;
     currentColumns = data.columns;
     currentDtypes = data.dtypes || {};
+    _lastShape = data.shape || null;
 
     uploadProgress.style.display = "none";
     btnUploadButton.disabled = true;
@@ -235,7 +397,12 @@ function onUploadSuccess(data) {
     document.getElementById("analyze-empty").style.display = "none";
 
     showSuccess("数据上传成功！" + data.shape[0] + " 行 × " + data.shape[1] + " 列");
+
+    // 开始新会话
+    startNewSession(_lastFileName);
     addRecord("upload", data.shape[0] + " 行 × " + data.shape[1] + " 列，共 " + data.columns.length + " 个字段");
+
+    saveAppState();
 }
 
 // ================================================================
@@ -296,6 +463,7 @@ document.getElementById("btn-clean").addEventListener("click", async function ()
             if (result.report.outliers_removed) { cleanDetail += "，移除 " + result.report.outliers_removed + " 个异常值"; }
         }
         addRecord("clean", cleanDetail);
+        saveAppState();
     } catch (err) {
         cleanLoading.style.display = "none";
         setNavStatus("clean", "FAILED");
@@ -352,16 +520,12 @@ document.getElementById("btn-plot").addEventListener("click", async function () 
         setSysStatus("图表生成完成");
         var plotDetail = x + " vs " + y + " · " + type;
         addRecord("plot", plotDetail);
+        saveAppState();
         if (result.plotly_json) {
             setTimeout(function () {
                 try {
                     Plotly.toImage("plotly-chart", { format: "png", width: 400, height: 250 }).then(function (imgUrl) {
-                        var records = loadRecords();
-                        if (records.length > 0 && records[0].type === "plot") {
-                            records[0].chartImg = imgUrl;
-                            localStorage.setItem("idas_history", JSON.stringify(records));
-                            if (currentView === "history") { renderHistory(); }
-                        }
+                        updateLastPlotImage(imgUrl);
                     }).catch(function () { });
                 } catch (e) { }
             }, 500);
@@ -427,6 +591,7 @@ document.getElementById("btn-analyze").addEventListener("click", async function 
             ? "K-Means (K=" + parseInt(document.getElementById("k-slider").value) + ")"
             : "线性回归";
         addRecord("analyze", algoLabel);
+        saveAppState();
     } catch (err) {
         analyzeLoading.style.display = "none";
         analyzeEmpty.style.display = "block";
@@ -457,6 +622,7 @@ document.getElementById("btn-export").addEventListener("click", function (e) {
     setSysStatus((fmt === "xlsx" ? "Excel" : "CSV") + " 导出已开始");
     showSuccess((fmt === "xlsx" ? "Excel" : "CSV") + " 导出已开始");
     addRecord("export", "导出为 " + fmt.toUpperCase() + " 文件");
+    saveAppState();
 });
 
 // ================================================================
@@ -594,47 +760,175 @@ document.getElementById("btn-export").addEventListener("click", function (e) {
 })();
 
 // ================================================================
-// 7. 历史记录（localStorage 存储）
+// 7. 历史记录（按会话分组，localStorage 存储）
 // ================================================================
 
+/** 当前会话 ID（上传时生成） */
+var _currentSessionId = null;
+
+/**
+ * 开始新会话（上传文件时调用）。
+ * @param {string} fileName
+ * @param {string} [sessionId] - 可选，指定会话 ID
+ */
+function startNewSession(fileName, sessionId) {
+    var sid = sessionId || String(Date.now());
+    _currentSessionId = sid;
+    var sessions = loadSessions();
+    // 检查是否已存在同 ID 会话（避免重复）
+    var exists = false;
+    for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].sessionId === sid) { exists = true; break; }
+    }
+    if (!exists) {
+        sessions.unshift({
+            sessionId: sid,
+            fileName: fileName,
+            time: new Date().toLocaleString("zh-CN"),
+            timestamp: Date.now(),
+            steps: []
+        });
+    }
+    if (sessions.length > 30) sessions = sessions.slice(0, 30);
+    localStorage.setItem("idas_history", JSON.stringify(sessions));
+}
+
+/**
+ * 添加一条操作记录到当前会话中。
+ * @param {string} type - "upload"|"clean"|"plot"|"analyze"|"export"
+ * @param {string} detail - 操作描述
+ * @param {string} [chartImg] - 图表图片 data URL
+ */
 function addRecord(type, detail, chartImg) {
-    var records = loadRecords();
-    var now = new Date();
-    var record = {
-        type: type,
-        detail: detail,
-        time: now.toLocaleString("zh-CN"),
-        timestamp: now.getTime(),
-        chartImg: chartImg || null,
-    };
-    records.unshift(record);
-    if (records.length > 50) {
-        records = records.slice(0, 50);
+    // 如果没有当前会话，自动创建一个（支持流程中断后继续记录）
+    if (!_currentSessionId) {
+        var sid = String(Date.now());
+        _currentSessionId = sid;
+        var fileName = _lastFileName || "未命名文件";
+        startNewSession(fileName, sid);
     }
-    localStorage.setItem("idas_history", JSON.stringify(records));
-    if (currentView === "history") {
-        renderHistory();
+    var sessions = loadSessions();
+    var found = false;
+    for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].sessionId === _currentSessionId) {
+            sessions[i].steps.push({
+                type: type,
+                detail: detail,
+                time: new Date().toLocaleString("zh-CN"),
+                chartImg: chartImg || null
+            });
+            sessions[i].timestamp = Date.now();
+            found = true;
+            break;
+        }
     }
+    // 找不到会话则新建一个
+    if (!found) {
+        var newSes = {
+            sessionId: _currentSessionId,
+            fileName: _lastFileName || "未命名文件",
+            time: new Date().toLocaleString("zh-CN"),
+            timestamp: Date.now(),
+            steps: [{
+                type: type,
+                detail: detail,
+                time: new Date().toLocaleString("zh-CN"),
+                chartImg: chartImg || null
+            }]
+        };
+        sessions.unshift(newSes);
+    } else {
+        // 移到最前面
+        for (var i = 0; i < sessions.length; i++) {
+            if (sessions[i].sessionId === _currentSessionId && i > 0) {
+                var s = sessions.splice(i, 1)[0];
+                sessions.unshift(s);
+                break;
+            }
+        }
+    }
+    if (sessions.length > 30) sessions = sessions.slice(0, 30);
+    localStorage.setItem("idas_history", JSON.stringify(sessions));
+    if (currentView === "history") renderHistory();
+}
+
+/**
+ * 更新当前会话中最后一张图表步骤的图片（异步回调用）。
+ * @param {string} imgUrl - base64 data URL
+ */
+function updateLastPlotImage(imgUrl) {
+    if (!_currentSessionId) return;
+    var sessions = loadSessions();
+    for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].sessionId === _currentSessionId) {
+            var steps = sessions[i].steps;
+            for (var j = steps.length - 1; j >= 0; j--) {
+                if (steps[j].type === "plot") {
+                    steps[j].chartImg = imgUrl;
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    localStorage.setItem("idas_history", JSON.stringify(sessions));
+    if (currentView === "history") renderHistory();
 }
 
 function loadRecords() {
+    return loadSessions();
+}
+
+/** @returns {Array} 会话列表，自动迁移旧格式数据 */
+function loadSessions() {
     try {
         var raw = localStorage.getItem("idas_history");
-        return raw ? JSON.parse(raw) : [];
+        if (!raw) return [];
+        var data = JSON.parse(raw);
+        if (!Array.isArray(data) || data.length === 0) return [];
+
+        // 检测是否为新会话格式（第一个元素必须有 sessionId 或 steps）
+        if (data[0].sessionId && Array.isArray(data[0].steps)) {
+            return data;
+        }
+
+        // 旧格式扁平记录，将其包装为一个会话
+        // 从第一条记录取时间作为会话时间
+        var migratedSteps = [];
+        for (var i = data.length - 1; i >= 0; i--) {
+            migratedSteps.push({
+                type: data[i].type || "upload",
+                detail: data[i].detail || "",
+                time: data[i].time || "",
+                chartImg: data[i].chartImg || null
+            });
+        }
+        var migrated = [{
+            sessionId: String(Date.now()),
+            fileName: migratedSteps[0] ? (migratedSteps[0].detail || "历史数据") : "未知文件",
+            time: data[data.length - 1] ? data[data.length - 1].time : new Date().toLocaleString("zh-CN"),
+            timestamp: Date.now(),
+            steps: migratedSteps
+        }];
+        localStorage.setItem("idas_history", JSON.stringify(migrated));
+        return migrated;
     } catch (e) {
+        localStorage.removeItem("idas_history");
         return [];
     }
 }
 
+var _historyExpandedSession = null;
+
 function renderHistory() {
-    var records = loadRecords();
+    var sessions = loadSessions();
     var listEl = document.getElementById("history-list");
     var emptyEl = document.getElementById("history-empty");
     var clearBtn = document.getElementById("btn-clear-history");
 
     listEl.innerHTML = "";
 
-    if (records.length === 0) {
+    if (sessions.length === 0) {
         emptyEl.style.display = "flex";
         clearBtn.style.display = "none";
         return;
@@ -651,37 +945,113 @@ function renderHistory() {
         export: "数据导出",
     };
 
-    var typeIcons = {
-        upload: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
-        clean: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
-        plot: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="12" width="4" height="9"/><rect x="10" y="6" width="4" height="15"/><rect x="16" y="3" width="4" height="18"/></svg>',
-        analyze: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><circle cx="16" cy="16" r="2"/><line x1="9.4" y1="9.4" x2="14.6" y2="14.6"/></svg>',
-        export: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    var stepColors = {
+        upload: "#00d4ff",
+        clean: "#f5a623",
+        plot: "#10b981",
+        analyze: "#a78bfa",
+        export: "#60a5fa",
     };
 
-    records.forEach(function (rec, idx) {
+    sessions.forEach(function (session, idx) {
+        if (!session.steps || !Array.isArray(session.steps)) return;
+
         var card = document.createElement("div");
         card.className = "history-card";
-        card.style.animationDelay = idx * 0.04 + "s";
+        card.style.animationDelay = idx * 0.06 + "s";
+        card.setAttribute("data-session-id", session.sessionId);
 
-        var iconHtml = typeIcons[rec.type] || "";
-        var label = typeLabels[rec.type] || rec.type;
-
-        var inner = '<div class="history-card-header">';
-        inner += '<span class="history-card-type">' + iconHtml + " " + label + "</span>";
-        inner += '<span class="history-card-time">' + rec.time + "</span>";
-        inner += "</div>";
-        inner += '<div class="history-card-detail">' + rec.detail + "</div>";
-
-        if (rec.chartImg) {
-            inner += '<div class="history-card-chart">';
-            inner += '<img src="' + rec.chartImg + '" alt="chart thumbnail" />';
-            inner += "</div>";
+        // 取最后一张图表缩略图
+        var previewImg = null;
+        for (var s = session.steps.length - 1; s >= 0; s--) {
+            if (session.steps[s].chartImg) { previewImg = session.steps[s].chartImg; break; }
         }
 
+        // 卡片外层容器
+        var inner = '<div class="hc-surface">';
+
+        // === 头部：文件名 + 时间 + 步骤徽章 ===
+        inner += '<div class="hc-head">';
+        inner += '<div class="hc-file-row">';
+        inner += '<span class="hc-file-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>';
+        inner += '<span class="hc-filename">' + escapeHtml(session.fileName) + '</span>';
+        inner += '</div>';
+        inner += '<div class="hc-meta">';
+        inner += '<span class="hc-time">' + session.time + '</span>';
+        inner += '<span class="hc-divider-dot"></span>';
+        inner += '<span class="hc-step-count">' + session.steps.length + ' 项操作</span>';
+        if (previewImg) {
+            inner += '<span class="hc-divider-dot"></span>';
+            inner += '<span class="hc-badge-chart">图表</span>';
+        }
+        inner += '</div>';
+        inner += '</div>';
+
+        // === 步骤操作条（迷你步骤指示器） ===
+        inner += '<div class="hc-step-strip">';
+        session.steps.forEach(function (step) {
+            var clr = stepColors[step.type] || "#64748b";
+            inner += '<span class="hc-step-dot" style="background:' + clr + '" title="' + escapeHtml(typeLabels[step.type] || step.type) + '"></span>';
+        });
+        inner += '</div>';
+
+        // === 展开箭头 ===
+        inner += '<div class="hc-expand-hint"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>';
+
+        // === 展开详情面板 ===
+        inner += '<div class="hc-detail-wrap"><div class="hc-detail-inner">';
+        session.steps.forEach(function (step) {
+            var clr = stepColors[step.type] || "#64748b";
+            inner += '<div class="hc-step-row">';
+            // 时间线节点
+            inner += '<div class="hc-step-marker">';
+            inner += '<span class="hc-step-dot-lg" style="background:' + clr + ';box-shadow: 0 0 10px ' + clr + '40;"></span>';
+            inner += '</div>';
+            // 内容区
+            inner += '<div class="hc-step-body">';
+            inner += '<div class="hc-step-head">';
+            inner += '<span class="hc-step-tag" style="color:' + clr + ';border-color:' + clr + '40;">' + (typeLabels[step.type] || step.type) + '</span>';
+            inner += '<span class="hc-step-time">' + (step.time || "") + '</span>';
+            inner += '</div>';
+            inner += '<div class="hc-step-text">' + escapeHtml(step.detail || "") + '</div>';
+            if (step.chartImg) {
+                inner += '<div class="hc-chart-frame">';
+                inner += '<img src="' + step.chartImg + '" alt="chart" />';
+                inner += '</div>';
+            }
+            inner += '</div>';
+            inner += '</div>';
+        });
+        inner += '</div></div>';
+
+        inner += '</div>'; // .hc-surface
         card.innerHTML = inner;
         listEl.appendChild(card);
     });
+
+    // 展开/收起（CSS max-height 动画）
+    listEl.querySelectorAll(".history-card").forEach(function (card) {
+        card.addEventListener("click", function (e) {
+            var isExpanded = card.classList.contains("expanded");
+            // 收起所有
+            listEl.querySelectorAll(".history-card.expanded").forEach(function (c) {
+                c.classList.remove("expanded");
+                c.querySelector(".hc-detail-wrap").style.maxHeight = "0px";
+            });
+            // 展开当前（如果不是刚才收起的）
+            if (!isExpanded) {
+                card.classList.add("expanded");
+                var wrap = card.querySelector(".hc-detail-wrap");
+                wrap.style.maxHeight = wrap.scrollHeight + "px";
+            }
+        });
+    });
+}
+
+function escapeHtml(text) {
+    var div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 document.getElementById("btn-clear-history").addEventListener("click", function () {
@@ -735,7 +1105,10 @@ document.addEventListener("click", function (e) {
 // ================================================================
 document.addEventListener("DOMContentLoaded", function () {
     checkAuth();
+    // 尝试恢复上次会话状态
+    if (!restoreAppState()) {
+        switchView("data");
+        setSysStatus("系统就绪");
+    }
     console.log("交互式数据分析系统已加载");
-    switchView("data");
-    setSysStatus("系统就绪");
 });

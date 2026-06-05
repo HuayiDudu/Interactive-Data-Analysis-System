@@ -109,14 +109,172 @@ function populatePlotColumns(columns, dtypes = {}) {
 // 图表类型切换事件
 // ================================================================
 var _lastPlotGroup = 'numeric';  // 'numeric' | 'pie'
-document.getElementById('plot-type').addEventListener('change', function() {
+document.getElementById('plot-type').addEventListener('change', function () {
     var newGroup = this.value === 'pie' ? 'pie' : 'numeric';
     // 只有 numeric ↔ pie 切换时才需要重建选项（列类型不同）
     if (newGroup !== _lastPlotGroup && typeof populatePlotColumns === 'function' && typeof currentColumns !== 'undefined' && currentColumns.length > 0) {
         _lastPlotGroup = newGroup;
         populatePlotColumns(currentColumns, currentDtypes);
     }
+    _updateCustomParamVisibility(this.value);
 });
+
+// ================================================================
+// 自定义参数控件联动
+// ================================================================
+
+/**
+ * 根据当前图表类型显示/隐藏对应的自定义参数控件。
+ * @param {string} chartType - "scatter" | "line" | "bar" | "pie"
+ */
+function _updateCustomParamVisibility(chartType) {
+    var allParams = document.querySelectorAll('#plot-custom-params .param-group');
+
+    // 先全部隐藏，再按 chartType 显示对应的控件
+    allParams.forEach(function (group) {
+        if (group.classList.contains('plot-param-' + chartType)) {
+            group.style.display = '';
+        } else {
+            group.style.display = 'none';
+        }
+    });
+}
+
+// ================================================================
+// 滑块值实时显示更新
+// ================================================================
+var opacitySlider = document.getElementById('plot-opacity');
+if (opacitySlider) {
+    opacitySlider.addEventListener('input', function () {
+        var display = document.getElementById('opacity-display');
+        if (display) { display.textContent = parseFloat(this.value).toFixed(1); }
+    });
+}
+
+var markerSizeSlider = document.getElementById('plot-marker-size');
+if (markerSizeSlider) {
+    markerSizeSlider.addEventListener('input', function () {
+        var display = document.getElementById('marker-size-display');
+        if (display) { display.textContent = this.value; }
+    });
+}
+
+var pieHoleSlider = document.getElementById('plot-hole');
+if (pieHoleSlider) {
+    pieHoleSlider.addEventListener('input', function () {
+        var display = document.getElementById('pie-hole-display');
+        if (display) { display.textContent = parseFloat(this.value).toFixed(1); }
+    });
+}
+
+var lineWidthSlider = document.getElementById('plot-line-width');
+if (lineWidthSlider) {
+    lineWidthSlider.addEventListener('input', function () {
+        var display = document.getElementById('line-width-display');
+        if (display) { display.textContent = this.value; }
+    });
+}
+
+var pieMaxCatSlider = document.getElementById('plot-pie-max-categories');
+if (pieMaxCatSlider) {
+    pieMaxCatSlider.addEventListener('input', function () {
+        var display = document.getElementById('pie-max-cat-display');
+        if (display) { display.textContent = this.value; }
+    });
+}
+
+// ================================================================
+// 配色方案 / 主题实时切换（不重新请求后端，直接操作 Plotly）
+// ================================================================
+
+/** Plotly 预设色板（与后端 COLOR_SCHEMES 对应） */
+var _COLOR_PALETTES = {
+    d3: ['#1F77B4', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD', '#8C564B', '#E377C2', '#7F7F7F', '#BCBD22', '#17BECF'],
+    set1: ['#E41A1C', '#377EB8', '#4DAF4A', '#984EA3', '#FF7F00', '#FFFF33', '#A65628', '#F781BF', '#999999'],
+    set2: ['#66C2A5', '#FC8D62', '#8DA0CB', '#E78AC3', '#A6D854', '#FFD92F', '#E5C494', '#B3B3B3'],
+    pastel: ['#B3E2CD', '#FDCDAC', '#CBD5E8', '#F4CAE4', '#E6F5C9', '#FFF2AE', '#F1E2CC', '#CCCCCC'],
+    dark24: ['#2E91E5', '#E15F99', '#1CA71C', '#FB0D0D', '#DA16FF', '#222A2A', '#B68100', '#750D86', '#EB663B', '#511CFB', '#00A08B', '#FB00D1', '#FC0080', '#B2828D', '#6C7C32', '#778AAE', '#862A16', '#A777F1', '#620042', '#1616A7', '#A8BE34', '#5A5A8D', '#8C96F0', '#22FFA7'],
+    plotly: ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'],
+    g10: ['#3366CC', '#DC3912', '#FF9900', '#109618', '#990099', '#0099C6', '#DD4477', '#66AA00', '#B82E2E', '#316395', '#994499', '#22AA99', '#AAAA11', '#6633CC', '#E67300', '#8B0707', '#651067', '#329262', '#5574A6', '#3B3EAC'],
+    t10: ['#4C78A8', '#F58518', '#E45756', '#72B7B2', '#54A24B', '#EECA3B', '#B279A2', '#FF9DA6', '#9D755D', '#BAB0AC']
+};
+
+/** 主题预设（与后端 THEME_LIGHT / THEME_DARK 对应） */
+var _THEME_PRESETS = {
+    light: {
+        plot_bgcolor: '#FAFAFA',
+        paper_bgcolor: '#FFFFFF',
+        font: { color: '#333333' },
+        gridcolor: '#E5E5E5'
+    },
+    dark: {
+        plot_bgcolor: '#0d1525',
+        paper_bgcolor: '#0d1525',
+        font: { color: '#E8EDF4' },
+        gridcolor: 'rgba(255,255,255,0.06)'
+    }
+};
+
+/**
+ * 将主题实时应用到当前 Plotly 图表（不重新请求后端）
+ */
+function _applyChartTheme(themeName) {
+    var chartEl = document.getElementById('plotly-chart');
+    if (!chartEl || typeof Plotly === 'undefined') return;
+    var theme = _THEME_PRESETS[themeName] || _THEME_PRESETS['light'];
+    Plotly.relayout(chartEl, {
+        'plot_bgcolor': theme.plot_bgcolor,
+        'paper_bgcolor': theme.paper_bgcolor,
+        'font.color': theme.font.color,
+        'xaxis.gridcolor': theme.gridcolor,
+        'yaxis.gridcolor': theme.gridcolor,
+        'xaxis.zerolinecolor': theme.gridcolor,
+        'yaxis.zerolinecolor': theme.gridcolor
+    });
+}
+
+/**
+ * 将配色方案实时应用到当前 Plotly 图表的 trace 颜色（不重新请求后端）
+ * 对 scatter/line/bar 改 trace marker.color 或 line.color
+ * 对 pie 改 marker.colors（整个序列）
+ */
+function _applyChartColorScheme(schemeName) {
+    var chartEl = document.getElementById('plotly-chart');
+    if (!chartEl || typeof Plotly === 'undefined') return;
+    var colors = _COLOR_PALETTES[schemeName] || _COLOR_PALETTES['d3'];
+    var plotType = document.getElementById('plot-type').value;
+
+    if (plotType === 'pie') {
+        Plotly.restyle(chartEl, { 'marker.colors': [colors] });
+    } else if (plotType === 'bar') {
+        var nTraces = chartEl.data ? chartEl.data.length : 0;
+        for (var i = 0; i < nTraces; i++) {
+            Plotly.restyle(chartEl, { 'marker.color': colors[i % colors.length] }, [i]);
+        }
+    } else {
+        // scatter / line
+        Plotly.restyle(chartEl, { 'marker.color': colors[0] });
+        if (plotType === 'line') {
+            Plotly.restyle(chartEl, { 'line.color': colors[0] });
+        }
+    }
+}
+
+// 主题选择器事件
+var themeSelect = document.getElementById('plot-theme');
+if (themeSelect) {
+    themeSelect.addEventListener('change', function () {
+        _applyChartTheme(this.value);
+    });
+}
+
+// 配色选择器事件
+var colorSchemeSelect = document.getElementById('plot-color-scheme');
+if (colorSchemeSelect) {
+    colorSchemeSelect.addEventListener('change', function () {
+        _applyChartColorScheme(this.value);
+    });
+}
 
 // ================================================================
 // 2. 生成图表
@@ -154,17 +312,84 @@ async function handlePlot(datasetId) {
         // 显示加载状态
         container.innerHTML = '<div class="text-center py-8"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">加载中...</span></div><p class="mt-2">正在生成图表...</p></div>';
 
-        // 2. 发送请求到后端 /plot
-        console.log('plot 请求参数:', { dataset_id: datasetId, x: xCol, y: yCol, type: plotType });
+        // 2. 构建请求体（含自定义参数）
+        const body = {
+            dataset_id: datasetId,
+            x: xCol,
+            y: yCol,
+            type: plotType
+        };
+
+        // ====== 通用参数 ======
+        const titleEl = document.getElementById('plot-title');
+        if (titleEl) { const v = titleEl.value.trim(); if (v) body.title = v; }
+
+        const labelXEl = document.getElementById('plot-label-x');
+        if (labelXEl) { const v = labelXEl.value.trim(); if (v) body.axis_label_x = v; }
+
+        const labelYEl = document.getElementById('plot-label-y');
+        if (labelYEl) { const v = labelYEl.value.trim(); if (v) body.axis_label_y = v; }
+
+        const colorSchemeEl = document.getElementById('plot-color-scheme');
+        if (colorSchemeEl && colorSchemeEl.value !== 'd3') body.color_scheme = colorSchemeEl.value;
+
+        const themeEl = document.getElementById('plot-theme');
+        if (themeEl && themeEl.value !== 'light') body.theme = themeEl.value;
+
+        // ====== 散点图 ======
+        if (plotType === 'scatter') {
+            const opacityEl = document.getElementById('plot-opacity');
+            if (opacityEl) { const v = parseFloat(opacityEl.value); if (v !== 0.8) body.opacity = v; }
+
+            const markerSizeEl = document.getElementById('plot-marker-size');
+            if (markerSizeEl) { const v = parseInt(markerSizeEl.value, 10); if (v !== 12) body.marker_size = v; }
+        }
+
+        // ====== 折线图 ======
+        if (plotType === 'line') {
+            const markerSizeEl = document.getElementById('plot-marker-size');
+            if (markerSizeEl) { const v = parseInt(markerSizeEl.value, 10); if (v !== 10) body.marker_size = v; }
+
+            const lineWidthEl = document.getElementById('plot-line-width');
+            if (lineWidthEl) { const v = parseInt(lineWidthEl.value, 10); if (v !== 3) body.line_width = v; }
+
+            const showMarkersEl = document.getElementById('plot-show-markers');
+            if (showMarkersEl && !showMarkersEl.checked) body.show_markers = false;
+
+            const fillAreaEl = document.getElementById('plot-fill-area');
+            if (fillAreaEl && !fillAreaEl.checked) body.fill_area = false;
+        }
+
+        // ====== 柱状图 ======
+        if (plotType === 'bar') {
+            const aggregationEl = document.getElementById('plot-aggregation');
+            if (aggregationEl && aggregationEl.value !== 'mean') body.aggregation = aggregationEl.value;
+
+            const legendEl = document.getElementById('plot-show-legend');
+            if (legendEl && legendEl.checked) body.show_legend = true;
+        }
+
+        // ====== 饼图 ======
+        if (plotType === 'pie') {
+            const pieHoleEl = document.getElementById('plot-hole');
+            if (pieHoleEl) { const v = parseFloat(pieHoleEl.value); if (v !== 0.3) body.pie_hole = v; }
+
+            const maxCatEl = document.getElementById('plot-pie-max-categories');
+            if (maxCatEl) { const v = parseInt(maxCatEl.value, 10); if (v !== 10) body.pie_max_categories = v; }
+
+            const legendEl = document.getElementById('plot-show-legend');
+            if (legendEl && !legendEl.checked) body.show_legend = false;
+
+            const textPosEl = document.getElementById('plot-text-position');
+            if (textPosEl && textPosEl.value !== 'inside') body.text_position = textPosEl.value;
+        }
+
+        // 3. 发送请求到后端 /plot
+        console.log('plot 请求参数:', body);
         const response = await fetch('/plot', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                dataset_id: datasetId,
-                x: xCol,
-                y: yCol,
-                type: plotType
-            })
+            body: JSON.stringify(body)
         });
 
         const result = await response.json();
@@ -223,3 +448,6 @@ async function handlePlot(datasetId) {
         container.innerHTML = '<div class="alert alert-danger text-center py-4">网络错误或服务异常，请稍后重试</div>';
     }
 }
+
+// 初始加载时根据默认图表类型（scatter）设置控件可见性
+_updateCustomParamVisibility('scatter');

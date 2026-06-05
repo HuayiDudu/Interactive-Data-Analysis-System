@@ -172,7 +172,6 @@
                                     上传
                                 </button>
                             </div>
-                            <div id="file-name-display" class="file-name-display" style="display:none;"></div>
                             <div id="upload-progress" class="upload-progress" style="display:none;">
                                 <div class="spinner"></div>
                                 <span>正在解析...</span>
@@ -269,6 +268,7 @@
                                 <option value="scatter">散点图</option>
                                 <option value="line">折线图</option>
                                 <option value="bar">柱状图</option>
+                                <option value="pie">饼图</option>
                             </select>
                         </div>
                         <div class="param-group param-btn">
@@ -282,6 +282,114 @@
                                 </svg>
                                 生成图表
                             </button>
+                        </div>
+                    </div>
+                    <div class="plot-custom-params" id="plot-custom-params">
+                        <div class="param-bar">
+                            <!-- 通用：标题 -->
+                            <div class="param-group plot-param-scatter plot-param-line plot-param-bar plot-param-pie">
+                                <label class="field-label" for="plot-title">标题（留空自动生成）</label>
+                                <input id="plot-title" type="text" class="form-input-custom" placeholder="留空自动生成" />
+                            </div>
+                            <!-- 通用：X 轴标签 -->
+                            <div class="param-group plot-param-scatter plot-param-line plot-param-bar plot-param-pie">
+                                <label class="field-label" for="plot-label-x">X 轴标签（留空用列名）</label>
+                                <input id="plot-label-x" type="text" class="form-input-custom" placeholder="留空用列名" />
+                            </div>
+                            <!-- 通用：Y 轴标签 -->
+                            <div class="param-group plot-param-scatter plot-param-line plot-param-bar plot-param-pie">
+                                <label class="field-label" for="plot-label-y">Y 轴标签（留空用列名）</label>
+                                <input id="plot-label-y" type="text" class="form-input-custom" placeholder="留空用列名" />
+                            </div>
+                            <!-- 通用：配色方案 -->
+                            <div class="param-group plot-param-scatter plot-param-line plot-param-bar plot-param-pie">
+                                <label class="field-label" for="plot-color-scheme">配色方案</label>
+                                <select id="plot-color-scheme" class="form-select-custom">
+                                    <option value="d3">D3</option>
+                                    <option value="set1">Set1</option>
+                                    <option value="set2">Set2</option>
+                                    <option value="pastel">Pastel</option>
+                                    <option value="dark24">Dark24</option>
+                                    <option value="plotly">Plotly</option>
+                                    <option value="g10">G10</option>
+                                    <option value="t10">T10</option>
+                                </select>
+                            </div>
+                            <!-- 通用：主题 -->
+                            <div class="param-group plot-param-scatter plot-param-line plot-param-bar plot-param-pie">
+                                <label class="field-label" for="plot-theme">图表主题</label>
+                                <select id="plot-theme" class="form-select-custom">
+                                    <option value="light">亮色</option>
+                                    <option value="dark">暗色</option>
+                                </select>
+                            </div>
+                            <!-- 散点图：透明度 -->
+                            <div class="param-group plot-param-scatter">
+                                <label class="field-label">散点透明度: <span id="opacity-display">0.8</span></label>
+                                <input id="plot-opacity" type="range" min="0" max="1" step="0.1" value="0.8"
+                                    class="slider-custom" />
+                            </div>
+                            <!-- 散点图 + 折线图：标记点大小 -->
+                            <div class="param-group plot-param-scatter plot-param-line">
+                                <label class="field-label">标记点大小: <span id="marker-size-display">12</span></label>
+                                <input id="plot-marker-size" type="range" min="4" max="30" value="12"
+                                    class="slider-custom" />
+                            </div>
+                            <!-- 折线图：线条粗细 -->
+                            <div class="param-group plot-param-line">
+                                <label class="field-label">线条粗细: <span id="line-width-display">3</span></label>
+                                <input id="plot-line-width" type="range" min="1" max="8" value="3"
+                                    class="slider-custom" />
+                            </div>
+                            <!-- 折线图：显示标记点 -->
+                            <div class="param-group plot-param-line check-group">
+                                <label class="check-label">
+                                    <input type="checkbox" id="plot-show-markers" checked /> 显示数据标记点
+                                </label>
+                            </div>
+                            <!-- 折线图：填充面积 -->
+                            <div class="param-group plot-param-line check-group">
+                                <label class="check-label">
+                                    <input type="checkbox" id="plot-fill-area" checked /> 填充下方面积
+                                </label>
+                            </div>
+                            <!-- 柱状图：聚合方式 -->
+                            <div class="param-group plot-param-bar">
+                                <label class="field-label" for="plot-aggregation">聚合方式</label>
+                                <select id="plot-aggregation" class="form-select-custom">
+                                    <option value="mean">均值</option>
+                                    <option value="sum">总和</option>
+                                    <option value="count">计数</option>
+                                    <option value="median">中位数</option>
+                                </select>
+                            </div>
+                            <!-- 柱状图 + 饼图：显示图例 -->
+                            <div class="param-group plot-param-bar plot-param-pie check-group">
+                                <label class="check-label">
+                                    <input type="checkbox" id="plot-show-legend" /> 显示图例
+                                </label>
+                            </div>
+                            <!-- 饼图：空心比例 -->
+                            <div class="param-group plot-param-pie">
+                                <label class="field-label">饼图空心比例: <span id="pie-hole-display">0.3</span></label>
+                                <input id="plot-hole" type="range" min="0" max="0.8" step="0.1" value="0.3"
+                                    class="slider-custom" />
+                            </div>
+                            <!-- 饼图：最大分类数 -->
+                            <div class="param-group plot-param-pie">
+                                <label class="field-label">饼图最大分类: <span id="pie-max-cat-display">10</span></label>
+                                <input id="plot-pie-max-categories" type="range" min="3" max="20" value="10"
+                                    class="slider-custom" />
+                            </div>
+                            <!-- 饼图：标签位置 -->
+                            <div class="param-group plot-param-pie">
+                                <label class="field-label" for="plot-text-position">标签位置</label>
+                                <select id="plot-text-position" class="form-select-custom">
+                                    <option value="inside">内部</option>
+                                    <option value="outside">外部</option>
+                                    <option value="none">无标签</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div id="plot-loading" class="view-loading" style="display:none;">

@@ -11,7 +11,7 @@ import sqlite3
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from repositories.sqlite_repo import SQLiteRepository
+from repositories.base import DataRepository
 
 
 class AuthService:
@@ -22,7 +22,7 @@ class AuthService:
     通过 SQLiteRepository 进行用户数据持久化。
     """
 
-    def __init__(self, repo: SQLiteRepository):
+    def __init__(self, repo: DataRepository):
         self._repo = repo
 
     def register(self, username: str, password: str) -> dict:

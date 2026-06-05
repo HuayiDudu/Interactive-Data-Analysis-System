@@ -64,6 +64,47 @@ class DataRepository(ABC):
         ...
 
     # ================================================================
+    # 用户管理接口
+    # ================================================================
+
+    @abstractmethod
+    def create_user(self, username: str, password_hash: str) -> int:
+        """
+        创建新用户。
+
+        Args:
+            username: 用户名（唯一）。
+            password_hash: werkzeug 密码哈希值。
+
+        Returns:
+            新用户的 id。
+
+        Raises:
+            ValueError: 用户名已存在。
+        """
+        ...
+
+    @abstractmethod
+    def get_user_by_username(self, username: str) -> dict | None:
+        """
+        根据用户名查询用户。
+
+        Returns:
+            用户字典 {id, username, password, created_at} 或 None。
+        """
+        ...
+
+    @abstractmethod
+    def get_user_by_id(self, user_id: int) -> dict | None:
+        """
+        根据 ID 查询用户。
+
+        Returns:
+            用户字典 {id, username, password, created_at} 或 None。
+        """
+        ...
+
+    # ================================================================
     # 扩展接口（MVP 可选实现，默认抛出 NotImplementedError）
     # ================================================================
 

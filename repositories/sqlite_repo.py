@@ -8,6 +8,7 @@ repositories/sqlite_repo.py - SQLite 数据仓库（扩展阶段）
 【负责人】项目负责人
 """
 
+import atexit
 import sqlite3
 import uuid
 from io import BytesIO
@@ -42,6 +43,12 @@ class SQLiteRepository(DataRepository):
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA busy_timeout=5000")
         self._init_db()
+        atexit.register(self._close_and_checkpoint)
+
+    def _close_and_checkpoint(self) -> None:
+        """程序退出时合并 WAL 日志并关闭连接。"""
+        self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        self._conn.close()
 
     def _init_db(self) -> None:
         """初始化数据库表结构。"""

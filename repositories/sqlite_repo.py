@@ -57,9 +57,15 @@ class SQLiteRepository(DataRepository):
                 id         TEXT    PRIMARY KEY,
                 data       BLOB    NOT NULL,
                 name       TEXT,
+                user_id    INTEGER,
                 created_at TEXT    DEFAULT (datetime('now', 'localtime'))
             )
         """)
+        # 迁移：为已有数据库添加 user_id 列（若尚不存在）
+        try:
+            self._conn.execute("ALTER TABLE datasets ADD COLUMN user_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
         self._conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,45 +86,110 @@ class SQLiteRepository(DataRepository):
             df: 要保存的 DataFrame。
             context: 可选上下文，支持:
                 - "filename": 原始文件名，存入 name 列。
+                - "user_id": 上传用户的 ID，存入 user_id 列。
 
         Returns:
             新生成的 DatasetRef。
         """
         ref = DatasetRef(uuid.uuid4().hex)
-        name = (context or {}).get("filename", "")
+        ctx = context or {}
+        name = ctx.get("filename", "")
+        user_id = ctx.get("user_id")
 
         buf = BytesIO()
         df.to_parquet(buf, index=False)
         blob = buf.getvalue()
 
         self._conn.execute(
-            "INSERT INTO datasets (id, data, name) VALUES (?, ?, ?)",
-            (ref.id, blob, name),
+            "INSERT INTO datasets (id, data, name, user_id) VALUES (?, ?, ?, ?)",
+            (ref.id, blob, name, user_id),
         )
         self._conn.commit()
         return ref
 
-    def load_data(self, ref: DatasetRef) -> pd.DataFrame:
+    def load_data(
+        self, ref: DatasetRef, user_id: int | None = None
+    ) -> pd.DataFrame:
         """
-        从数据库加载 DataFrame。
+        从数据库加载 DataFrame，可选所有权校验。
 
         Args:
             ref: 数据集引用。
+            user_id: 若传入，检查数据集是否属于该用户。
+                     允许 NULL user_id（迁移遗留数据）供任何用户读取。
 
         Returns:
             对应的 pandas DataFrame。
 
         Raises:
-            ValueError: 数据集不存在或已被删除。
+            ValueError: 数据集不存在、已被删除或无访问权限。
         """
         row = self._conn.execute(
-            "SELECT data FROM datasets WHERE id = ?", (ref.id,)
+            "SELECT data, user_id FROM datasets WHERE id = ?", (ref.id,)
         ).fetchone()
 
         if not row:
             raise ValueError(f"数据集不存在或已被删除: {ref.id}")
 
+        owner_id = row[1]
+        if user_id is not None and owner_id is not None and owner_id != user_id:
+            raise ValueError(f"无权访问该数据集")
+
         return pd.read_parquet(BytesIO(row[0]))
+
+    def list_datasets(
+        self,
+        user_id: int,
+        page: int = 1,
+        per_page: int = 10,
+        search: str = "",
+        order_by: str = "created_at",
+        order_dir: str = "desc",
+    ) -> dict:
+        """
+        分页列出指定用户的数据集列表。
+
+        Args:
+            user_id: 用户 ID。
+            page: 页码，从 1 开始。
+            per_page: 每页条数，范围 [5, 50]。
+            search: 按文件名模糊检索。
+            order_by: 排序字段，'created_at'（默认）或 'name'。
+            order_dir: 排序方向，'asc' 或 'desc'，默认 'desc'。
+
+        Returns:
+            {"total": int, "page": int, "per_page": int, "items": [...]}
+        """
+        per_page = max(5, min(50, per_page))
+        page = max(1, page)
+        offset = (page - 1) * per_page
+
+        if order_by not in ("created_at", "name"):
+            order_by = "created_at"
+        order_dir_sql = "ASC" if order_dir == "asc" else "DESC"
+
+        if search:
+            where = "WHERE user_id = ? AND name LIKE ?"
+            params: list = [user_id, f"%{search}%"]
+        else:
+            where = "WHERE user_id = ?"
+            params = [user_id]
+
+        count_row = self._conn.execute(
+            f"SELECT COUNT(*) FROM datasets {where}", params
+        ).fetchone()
+        total = count_row[0] if count_row else 0
+
+        rows = self._conn.execute(
+            f"SELECT id, name, created_at FROM datasets {where} ORDER BY {order_by} {order_dir_sql} LIMIT ? OFFSET ?",
+            params + [per_page, offset],
+        ).fetchall()
+
+        items = [
+            {"id": r[0], "name": r[1] or "", "created_at": r[2]}
+            for r in rows
+        ]
+        return {"total": total, "page": page, "per_page": per_page, "items": items}
 
     def delete_data(self, ref: DatasetRef) -> None:
         """

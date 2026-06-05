@@ -68,7 +68,7 @@ class FileRepository(DataRepository):
         self._ref_map[ref_id] = filepath
         return DatasetRef(ref_id)
 
-    def load_data(self, ref: DatasetRef) -> pd.DataFrame:
+    def load_data(self, ref: DatasetRef, user_id: int | None = None) -> pd.DataFrame:
         """
         根据引用加载 DataFrame。
 

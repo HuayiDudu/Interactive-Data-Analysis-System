@@ -38,18 +38,19 @@ class DataRepository(ABC):
         ...
 
     @abstractmethod
-    def load_data(self, ref: DatasetRef) -> pd.DataFrame:
+    def load_data(self, ref: DatasetRef, user_id: int | None = None) -> pd.DataFrame:
         """
         根据引用加载 DataFrame。
 
         Args:
             ref: 数据集引用。
+            user_id: 可选的用户 ID，用于验证数据集所有权。
 
         Returns:
             对应的 pandas DataFrame。
 
         Raises:
-            ValueError: 当 ref 无效或数据集已被清理时抛出。
+            ValueError: 当 ref 无效、数据集已被清理或无权访问时抛出。
         """
         ...
 

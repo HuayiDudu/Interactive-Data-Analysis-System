@@ -37,6 +37,7 @@ class CleanService:
         dataset_ref: DatasetRef,
         missing_strategy: dict,
         outlier_method: str | None,
+        user_id: int | None = None,
     ) -> tuple[DatasetRef, list, dict]:
         """
         执行数据清洗操作。
@@ -50,6 +51,7 @@ class CleanService:
                 异常值检测方法，当前支持:
                 - "iqr": 使用 IQR 方法检测并移除异常值
                 - None: 不进行异常值处理
+            user_id: 当前用户 ID，用于绑定清洗后新数据集的所有权。
 
         Returns:
             (new_ref, preview_list, report_dict) 元组。
@@ -79,8 +81,8 @@ class CleanService:
         report["rows_before"] = rows_before
         report["rows_after"] = len(df)
 
-        # 4. 保存清洗结果为新数据集
-        new_ref = self.repo.save_data(df)
+        # 4. 保存清洗结果为新数据集（绑定用户所有权）
+        new_ref = self.repo.save_data(df, {"user_id": user_id})
 
         # 5. 构造预览（NaN 转 None 保持 JSON 合法）
         preview = []

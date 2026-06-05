@@ -6,7 +6,7 @@ routes/upload.py - 文件上传路由
 【负责人】数据管理模块开发人员
 """
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
 
 upload_bp = Blueprint("upload", __name__)
 
@@ -55,7 +55,7 @@ def upload():
 
     try:
         data_service = current_app.data_service
-        dataset_ref, preview = data_service.upload(file)
+        dataset_ref, preview = data_service.upload(file, user_id=session.get("user_id"))
 
         return jsonify({
             "status": "success",

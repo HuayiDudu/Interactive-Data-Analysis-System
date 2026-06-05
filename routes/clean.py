@@ -6,7 +6,7 @@ routes/clean.py - 数据清洗路由
 【负责人】数据清洗模块开发人员
 """
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
 
 from value_objects import DatasetRef
 
@@ -55,7 +55,7 @@ def clean():
     clean_service = current_app.clean_service
     try:
         new_ref, preview, report = clean_service.clean(
-            dataset_ref, missing, outlier
+            dataset_ref, missing, outlier, user_id=session.get("user_id")
         )
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400

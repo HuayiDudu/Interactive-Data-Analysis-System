@@ -36,12 +36,15 @@ class DataService:
         """
         self.repo = repo
 
-    def upload(self, file_storage: Any) -> tuple[DatasetRef, dict]:
+    def upload(
+        self, file_storage: Any, user_id: int | None = None
+    ) -> tuple[DatasetRef, dict]:
         """
         处理上传文件，返回数据集引用和预览信息。
 
         Args:
             file_storage: Flask 上传文件对象 (werkzeug.datastructures.FileStorage)。
+            user_id: 上传用户的 ID，存入数据集所有权。
 
         Returns:
             (DatasetRef, preview_dict) 元组。
@@ -79,10 +82,10 @@ class DataService:
             df.columns = deduped
 
         # ================================================================
-        # 2. 通过数据访问层保存数据
+        # 2. 通过数据访问层保存数据（携带用户 ID 以绑定所有权）
         # 【说明】repo.save_data 由通用组件提供，此处直接调用
         # ================================================================
-        dataset_ref = self.repo.save_data(df)
+        dataset_ref = self.repo.save_data(df, {"user_id": user_id})
 
         # ================================================================
         # 3. 构造预览信息

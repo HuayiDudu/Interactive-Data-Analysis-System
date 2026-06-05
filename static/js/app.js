@@ -1190,6 +1190,9 @@ async function checkAuth() {
 document.addEventListener("click", function (e) {
     var logoutBtn = document.getElementById("logout-btn");
     if (logoutBtn && e.target === logoutBtn) {
+        // 清除本地缓存的应用状态和历史记录，防止重新登录后恢复旧数据
+        localStorage.removeItem("idas_app_state");
+        localStorage.removeItem("idas_history");
         fetch("/api/logout", { method: "POST" })
             .then(function () { window.location.href = "/"; })
             .catch(function () { window.location.href = "/"; });

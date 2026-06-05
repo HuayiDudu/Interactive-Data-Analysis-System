@@ -4,6 +4,9 @@ routes/analyze.py - 数据分析路由
 【层】控制层（Flask 路由）
 【说明】提供数据分析 HTTP API：聚类、回归、算法对比。
         严格遵循层间依赖规则：仅调用 Service 层方法，不直接操作数据访问层。
+        兼容两套路由：
+        (1) POST /analyze            — 统一分发路由，algorithm 字段指定算法
+        (2) POST /analyze/kmeans 等  — 按算法独立路由
 【负责人】分析功能模块开发人员
 """
 
@@ -80,7 +83,48 @@ def handle_errors(func):
 
 
 # ─────────────────────────────────────────────
-#  聚类路由
+#  统一分发路由（开发文档 4.4 接口契约）
+# ─────────────────────────────────────────────
+
+@analyze_bp.route("/analyze", methods=["POST"])
+@handle_errors
+def analyze_dispatch():
+    """
+    数据分析统一入口路由。
+
+    请求体 JSON 示例（K-Means）:
+    {
+        "dataset_id": "xxx",
+        "algorithm": "kmeans",
+        "columns": ["col1", "col2"],
+        "n_clusters": 3
+    }
+
+    请求体 JSON 示例（线性回归）:
+    {
+        "dataset_id": "xxx",
+        "algorithm": "linear_regression",
+        "feature_cols": ["age", "income"],
+        "target_col": "score"
+    }
+
+    algorithm 支持的取值:
+        kmeans, dbscan, linear_regression,
+        polynomial_regression, compare_clustering, compare_regression
+    """
+    body = request.get_json(force=True)
+    _validate_body(body, ["dataset_id", "algorithm"])
+
+    dataset_ref = DatasetRef(body["dataset_id"])
+    algorithm = body.pop("algorithm")
+
+    service = current_app.analyze_service
+    result = service.analyze(dataset_ref, algorithm, body)
+    return _ok(result)
+
+
+# ─────────────────────────────────────────────
+#  聚类路由（按算法独立路由）
 # ─────────────────────────────────────────────
 
 @analyze_bp.route("/analyze/kmeans", methods=["POST"])
@@ -88,13 +132,13 @@ def handle_errors(func):
 def kmeans():
     """K-Means 聚类。"""
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "columns"])
+    _validate_body(body, ["dataset_id"])
 
     n_clusters = _parse_int(body.get("n_clusters", 3), "n_clusters", 3)
     service = current_app.analyze_service
     result = service.kmeans(
         DatasetRef(body["dataset_id"]),
-        columns=body["columns"],
+        columns=body.get("columns"),
         n_clusters=n_clusters,
     )
     return _ok(result)
@@ -105,14 +149,14 @@ def kmeans():
 def dbscan():
     """DBSCAN 密度聚类。"""
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "columns"])
+    _validate_body(body, ["dataset_id"])
 
     eps = _parse_float(body.get("eps", 0.5), "eps", 0.5)
     min_samples = _parse_int(body.get("min_samples", 5), "min_samples", 5)
     service = current_app.analyze_service
     result = service.dbscan(
         DatasetRef(body["dataset_id"]),
-        columns=body["columns"],
+        columns=body.get("columns"),
         eps=eps,
         min_samples=min_samples,
     )
@@ -124,7 +168,7 @@ def dbscan():
 def compare_clustering():
     """聚类算法对比：K-Means vs DBSCAN。"""
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "columns"])
+    _validate_body(body, ["dataset_id"])
 
     n_clusters = _parse_int(body.get("n_clusters", 3), "n_clusters", 3)
     eps = _parse_float(body.get("eps", 0.5), "eps", 0.5)
@@ -132,7 +176,7 @@ def compare_clustering():
     service = current_app.analyze_service
     result = service.compare_clustering(
         DatasetRef(body["dataset_id"]),
-        columns=body["columns"],
+        columns=body.get("columns"),
         n_clusters=n_clusters,
         eps=eps,
         min_samples=min_samples,
@@ -149,17 +193,17 @@ def compare_clustering():
 def regression():
     """线性回归（支持多特征列）。"""
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "x_cols", "y_col"])
+    _validate_body(body, ["dataset_id", "feature_cols", "target_col"])
 
-    x_cols = body["x_cols"]
-    if not isinstance(x_cols, list) or len(x_cols) == 0:
-        raise TypeError("x_cols 必须是非空列表")
+    feature_cols = body["feature_cols"]
+    if not isinstance(feature_cols, list) or len(feature_cols) == 0:
+        raise TypeError("feature_cols 必须是非空列表")
 
     service = current_app.analyze_service
     result = service.linear_regression(
         DatasetRef(body["dataset_id"]),
-        x_cols=x_cols,
-        y_col=body["y_col"],
+        feature_cols=feature_cols,
+        target_col=body["target_col"],
     )
     return _ok(result)
 
@@ -169,14 +213,14 @@ def regression():
 def poly_regression():
     """多项式回归（单特征）。"""
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "x_col", "y_col"])
+    _validate_body(body, ["dataset_id", "feature_col", "target_col"])
 
     degree = _parse_int(body.get("degree", 2), "degree", 2)
     service = current_app.analyze_service
     result = service.polynomial_regression(
         DatasetRef(body["dataset_id"]),
-        x_col=body["x_col"],
-        y_col=body["y_col"],
+        feature_col=body["feature_col"],
+        target_col=body["target_col"],
         degree=degree,
     )
     return _ok(result)
@@ -187,18 +231,18 @@ def poly_regression():
 def compare_regression():
     """回归算法对比：线性 / Ridge / Lasso / 多项式。"""
     body = request.get_json(force=True)
-    _validate_body(body, ["dataset_id", "x_cols", "y_col"])
+    _validate_body(body, ["dataset_id", "feature_cols", "target_col"])
 
-    x_cols = body["x_cols"]
-    if not isinstance(x_cols, list) or len(x_cols) == 0:
-        raise TypeError("x_cols 必须是非空列表")
+    feature_cols = body["feature_cols"]
+    if not isinstance(feature_cols, list) or len(feature_cols) == 0:
+        raise TypeError("feature_cols 必须是非空列表")
 
     degree = _parse_int(body.get("degree", 2), "degree", 2)
     service = current_app.analyze_service
     result = service.compare_regression(
         DatasetRef(body["dataset_id"]),
-        x_cols=x_cols,
-        y_col=body["y_col"],
+        feature_cols=feature_cols,
+        target_col=body["target_col"],
         degree=degree,
     )
     return _ok(result)

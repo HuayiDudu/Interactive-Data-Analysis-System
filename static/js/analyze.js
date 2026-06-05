@@ -4,6 +4,7 @@
  * 【层】表示层（Web 界面）
  * 【说明】提供数据分析的 UI 交互，仅调用控制层 HTTP API。
  *         暴露 populateAlgorithmParams() 和 handleAnalyze() 供 app.js 调用。
+ *         支持统一分发路由 (POST /analyze) 和按算法独立路由两种方式。
  * 【负责人】分析功能模块开发人员
  */
 
@@ -113,18 +114,18 @@ function _renderKmeansResult(data) {
 
 function _renderRegressionResult(data) {
     var equation;
-    if (data.x_cols && data.x_cols.length > 1) {
-        var terms = data.coefficients.map(function (c, i) { return c + " × " + data.x_cols[i]; });
+    if (data.feature_cols && data.feature_cols.length > 1) {
+        var terms = data.coefficients.map(function (c, i) { return c + " × " + data.feature_cols[i]; });
         equation = "Y = " + terms.join(" + ") + " + " + data.intercept;
     } else {
-        var xName = (data.x_cols && data.x_cols[0]) || data.x_col || "X";
+        var xName = (data.feature_cols && data.feature_cols[0]) || data.feature_col || "X";
         equation = "Y = " + data.coefficients[0] + " × " + xName + " + " + data.intercept;
     }
     equation = equation.replace(/\+\s*-/g, "- ");
 
-    var coefItems = (data.x_cols && data.x_cols.length > 1)
+    var coefItems = (data.feature_cols && data.feature_cols.length > 1)
         ? data.coefficients.map(function (c, i) {
-            return _metricBadge("系数 " + data.x_cols[i], c);
+            return _metricBadge("系数 " + data.feature_cols[i], c);
         }).join("")
         : _metricBadge("斜率 slope", data.coefficients[0]);
 
@@ -168,7 +169,7 @@ function _renderDbscanResult(data) {
 
 function _renderPolyRegressionResult(data) {
     var sup = ["", "", "²", "³", "⁴", "⁵"];
-    var xName = data.x_col || "x";
+    var xName = data.feature_col || "x";
     var terms = data.coefficients.map(function (c, i) {
         var power = i + 1;
         var xStr = power === 1 ? xName : xName + (sup[power] ?? "^" + power);
@@ -215,7 +216,7 @@ function _renderCompareRegression(data) {
 }
 
 // ================================================================
-// API 调用函数
+// 按算法独立调用函数（供 AnalyzeModule / 扩展 HTML 用）
 // ================================================================
 
 async function runKmeans() {
@@ -246,15 +247,15 @@ async function runRegression() {
     if (!datasetId) { alert("请先上传数据集"); return; }
 
     var xEl = document.getElementById("lr-feature-cols");
-    var xCols = Array.from(xEl.selectedOptions).map(function (o) { return o.value; }).filter(Boolean);
-    var yCol = document.getElementById("lr-target-col").value;
+    var featureCols = Array.from(xEl.selectedOptions).map(function (o) { return o.value; }).filter(Boolean);
+    var targetCol = document.getElementById("lr-target-col").value;
 
-    if (xCols.length === 0 || !yCol) {
-        alert("请选择 X 列和 Y 列");
+    if (featureCols.length === 0 || !targetCol) {
+        alert("请选择特征列和目标列");
         return;
     }
-    if (xCols.includes(yCol)) {
-        alert("Y 列不能与 X 列中任意列相同");
+    if (featureCols.includes(targetCol)) {
+        alert("目标列不能与特征列中任意列相同");
         return;
     }
 
@@ -262,8 +263,8 @@ async function runRegression() {
     try {
         var data = await _postJSON("/analyze/regression", {
             dataset_id: datasetId,
-            x_cols: xCols,
-            y_col: yCol,
+            feature_cols: featureCols,
+            target_col: targetCol,
         });
         _renderRegressionResult(data);
     } catch (e) {
@@ -271,7 +272,6 @@ async function runRegression() {
     }
 }
 
-// 以下函数供扩展使用（需要对应 HTML 控件）
 async function runDbscan() {
     var datasetId = _getDatasetId();
     if (!datasetId) { alert("请先上传数据集"); return; }
@@ -298,9 +298,9 @@ async function runPolyRegression() {
     if (!datasetId) { alert("请先上传数据集"); return; }
 
     var xEl = document.getElementById("reg-x");
-    var xCol = xEl ? Array.from(xEl.selectedOptions).map(function (o) { return o.value; })[0] : null;
-    var yCol = document.getElementById("reg-y")?.value;
-    if (!xCol || !yCol) { alert("请选择 X 列和 Y 列"); return; }
+    var featureCol = xEl ? Array.from(xEl.selectedOptions).map(function (o) { return o.value; })[0] : null;
+    var targetCol = document.getElementById("reg-y")?.value;
+    if (!featureCol || !targetCol) { alert("请选择特征列和目标列"); return; }
 
     var degree = parseInt(document.getElementById("poly-degree")?.value) || 2;
 
@@ -308,8 +308,8 @@ async function runPolyRegression() {
     try {
         var data = await _postJSON("/analyze/poly_regression", {
             dataset_id: datasetId,
-            x_col: xCol,
-            y_col: yCol,
+            feature_col: featureCol,
+            target_col: targetCol,
             degree: degree,
         });
         _renderPolyRegressionResult(data);
@@ -346,9 +346,9 @@ async function runCompareRegression() {
     if (!datasetId) { alert("请先上传数据集"); return; }
 
     var xEl = document.getElementById("reg-x");
-    var xCols = xEl ? Array.from(xEl.selectedOptions).map(function (o) { return o.value; }) : [];
-    var yCol = document.getElementById("reg-y")?.value;
-    if (xCols.length === 0 || !yCol) { alert("请选择 X 列和 Y 列"); return; }
+    var featureCols = xEl ? Array.from(xEl.selectedOptions).map(function (o) { return o.value; }) : [];
+    var targetCol = document.getElementById("reg-y")?.value;
+    if (featureCols.length === 0 || !targetCol) { alert("请选择特征列和目标列"); return; }
 
     var degree = parseInt(document.getElementById("poly-degree")?.value) || 2;
 
@@ -356,8 +356,8 @@ async function runCompareRegression() {
     try {
         var data = await _postJSON("/analyze/compare/regression", {
             dataset_id: datasetId,
-            x_cols: xCols,
-            y_col: yCol,
+            feature_cols: featureCols,
+            target_col: targetCol,
             degree: degree,
         });
         _renderCompareRegression(data);
@@ -409,27 +409,58 @@ function populateAlgorithmParams(algorithm, columns) {
 }
 
 /**
- * 执行数据分析。
+ * 执行数据分析（通过统一分发路由 POST /analyze）。
+ *
+ * 根据 algorithm-type 下拉框的值自动组装参数：
+ *   - kmeans: columns + n_clusters
+ *   - linear_regression: feature_cols + target_col
+ *
  * @param {string} datasetId - 当前数据集 ID
- * @returns {Promise<object|undefined>}
  */
 async function handleAnalyze(datasetId) {
     var algorithm = document.getElementById("algorithm-type").value;
+    var params = { dataset_id: datasetId, algorithm: algorithm };
 
-    try {
-        var result;
-        if (algorithm === "kmeans") {
-            await runKmeans();
-        } else if (algorithm === "linear_regression") {
-            await runRegression();
+    if (algorithm === "kmeans") {
+        var nClusters = parseInt(document.getElementById("k-slider").value) || 3;
+        if (nClusters < 2 || nClusters > 10) {
+            alert("K 值应在 2～10 之间");
+            return;
         }
+        params.n_clusters = nClusters;
+    } else if (algorithm === "linear_regression") {
+        var xEl = document.getElementById("lr-feature-cols");
+        var featureCols = Array.from(xEl.selectedOptions).map(function (o) { return o.value; }).filter(Boolean);
+        var targetCol = document.getElementById("lr-target-col").value;
+        if (featureCols.length === 0 || !targetCol) {
+            alert("请选择特征列和目标列");
+            return;
+        }
+        if (featureCols.includes(targetCol)) {
+            alert("目标列不能与特征列中任意列相同");
+            return;
+        }
+        params.feature_cols = featureCols;
+        params.target_col = targetCol;
+    }
+
+    var renderMap = {
+        kmeans: _renderKmeansResult,
+        linear_regression: _renderRegressionResult,
+    };
+    var renderFn = renderMap[algorithm];
+
+    _showLoading("analyze-result");
+    try {
+        var data = await _postJSON("/analyze", params);
+        if (renderFn) renderFn(data);
     } catch (e) {
-        throw e;
+        _showError("analyze-result", "分析失败：" + e.message);
     }
 }
 
 // ================================================================
-// 导出模块对象（供扩展使用）
+// 导出模块对象（供扩展 HTML 使用 AnalyzeModule.runKmeans() 等）
 // ================================================================
 var AnalyzeModule = {
     runKmeans: runKmeans,

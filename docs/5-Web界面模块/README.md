@@ -10,6 +10,7 @@
 |------|------|
 | `开发文档.md` | 完整工作手册：流程、实现步骤、接口规范、验收标准 |
 | `可视化自定义参数接入说明.md` | 可视化自定义参数的前端接入指导 |
+| `分析功能模块前端接入说明.md` | 分析功能模块的前端接入指导（6 种算法） |
 | `README.md` | 本文件 |
 
 ## 涉及代码文件
@@ -28,7 +29,7 @@
 | `upload.js` | `handleUpload()`, `renderPreview()`, `handleExport()` | 数据管理模块 | ✅ |
 | `clean.js` | `populateCleanOptions()`, `collectCleanParams()`, `handleClean()` | 数据清洗模块 | ✅ |
 | `plot.js` | `populatePlotColumns()`, `handlePlot()` | 可视化模块 | ✅ |
-| `analyze.js` | `handleAnalyze()`, `populateAlgorithmParams()` | 分析功能模块 | ✅ 前端 |
+| `analyze.js` | `handleAnalyze()`, `populateAlgorithmParams()` | 分析功能模块 | ✅ |
 
 ## 技术依赖
 

@@ -4,6 +4,7 @@ services/analyze_service.py - 数据分析服务
 【层】业务逻辑层（Service）
 【说明】提供机器学习分析功能：K-Means/DBSCAN 聚类、线性/多项式回归、算法对比。
         所有方法通过 DatasetRef 获取数据，保持对 Repository 抽象的依赖。
+        提供 analyze() 统一分发入口和独立的丰富接口两套 API。
 【负责人】分析功能模块开发人员
 """
 
@@ -29,6 +30,10 @@ class AnalyzeService:
     """
     数据分析服务。
 
+    两套 API：
+    (1) analyze() 统一分发入口 — 符合开发文档接口契约
+    (2) 各算法独立方法（kmeans/dbscan/linear_regression/...）— 参数展开，类型安全
+
     支持算法:
         - kmeans: K-Means 聚类
         - dbscan: DBSCAN 密度聚类
@@ -48,25 +53,64 @@ class AnalyzeService:
             raise FileNotFoundError(f"找不到数据集：{ref.id}")
         return df
 
-    # ─────────────────────────────────────────────
-    #  聚类模块
-    # ─────────────────────────────────────────────
+    # ═══════════════════════════════════════════════
+    #  统一分发入口（开发文档 4.1 接口契约）
+    # ═══════════════════════════════════════════════
 
-    def kmeans(
-        self,
-        dataset_ref: DatasetRef,
-        columns: list,
-        n_clusters: int = 3,
-    ) -> dict:
+    def analyze(self, dataset_ref: DatasetRef, algorithm: str, params: dict) -> dict:
         """
-        K-Means 聚类（含 Silhouette Score、Davies-Bouldin Score 效果评估）。
+        数据分析统一入口。
 
-        :param dataset_ref: 数据集引用
-        :param columns: 参与聚类的列名列表
-        :param n_clusters: 聚类数量 K（2~10）
-        :return: 聚类结果 + 评估指标字典
+        按 algorithm 分发到对应的内部 _*_analysis 方法，
+        params 字典透传，支持未来的自定义算法扩展。
+
+        Args:
+            dataset_ref: 数据集引用。
+            algorithm: 算法类型。
+            params: 算法参数字典（不包含 dataset_id 和 algorithm）。
+
+        Returns:
+            各算法的结果字典。
+
+        Raises:
+            ValueError: 不支持的算法类型。
         """
         df = self._load_data(dataset_ref)
+
+        dispatch = {
+            "kmeans": self._kmeans_analysis,
+            "dbscan": self._dbscan_analysis,
+            "linear_regression": self._linear_regression_analysis,
+            "polynomial_regression": self._polynomial_regression_analysis,
+            "compare_clustering": self._compare_clustering_analysis,
+            "compare_regression": self._compare_regression_analysis,
+        }
+
+        handler = dispatch.get(algorithm)
+        if handler is None:
+            raise ValueError(f"不支持的算法: {algorithm}")
+
+        return handler(df, params)
+
+    # ═══════════════════════════════════════════════
+    #  内部 _*_analysis 方法（单数据源，供 analyze() 和公有方法共用）
+    # ═══════════════════════════════════════════════
+
+    def _kmeans_analysis(self, df: pd.DataFrame, params: dict) -> dict:
+        """
+        K-Means 聚类内部实现。
+
+        Args:
+            df: 已加载的 DataFrame。
+            params: {
+                "columns": [...],      ← 可选，默认所有数值列
+                "n_clusters": 3,       ← 可选，默认 3
+            }
+        """
+        columns = params.get("columns") or [
+            c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])
+        ]
+        n_clusters = params.get("n_clusters", 3)
 
         if len(columns) < 1:
             raise ValueError("至少需要选择一列")
@@ -82,7 +126,8 @@ class AnalyzeService:
         if len(data) < n_clusters:
             raise ValueError("数据行数不能少于 K 值")
 
-        model = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
+        # model = StandardScaler().fit_transform(data)  # 可选：特征标准化
+        model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
         labels = model.fit_predict(data)
 
         sil_score = None
@@ -103,23 +148,23 @@ class AnalyzeService:
             "davies_bouldin_score": db_score,
         }
 
-    def dbscan(
-        self,
-        dataset_ref: DatasetRef,
-        columns: list,
-        eps: float = 0.5,
-        min_samples: int = 5,
-    ) -> dict:
+    def _dbscan_analysis(self, df: pd.DataFrame, params: dict) -> dict:
         """
-        DBSCAN 密度聚类（含自动标准化，适合不规则形状簇）。
+        DBSCAN 密度聚类内部实现。
 
-        :param dataset_ref: 数据集引用
-        :param columns: 参与聚类的列名列表
-        :param eps: 邻域搜索半径（针对标准化后数据）
-        :param min_samples: 核心点所需最少邻居数
-        :return: 聚类结果 + 评估指标字典
+        Args:
+            df: 已加载的 DataFrame。
+            params: {
+                "columns": [...],          ← 可选，默认所有数值列
+                "eps": 0.5,                ← 可选
+                "min_samples": 5,          ← 可选
+            }
         """
-        df = self._load_data(dataset_ref)
+        columns = params.get("columns") or [
+            c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])
+        ]
+        eps = params.get("eps", 0.5)
+        min_samples = params.get("min_samples", 5)
 
         if len(columns) < 1:
             raise ValueError("至少需要选择一列")
@@ -167,30 +212,141 @@ class AnalyzeService:
             "min_samples": min_samples,
         }
 
-    def compare_clustering(
-        self,
-        dataset_ref: DatasetRef,
-        columns: list,
-        n_clusters: int = 3,
-        eps: float = 0.5,
-        min_samples: int = 5,
-    ) -> dict:
+    def _linear_regression_analysis(self, df: pd.DataFrame, params: dict) -> dict:
         """
-        聚类多算法对比：K-Means vs DBSCAN。
+        线性回归内部实现。
 
-        两个算法独立运行，失败时记录错误但不中断对方，
-        最终返回统一的 summary 对比表便于前端渲染。
+        Args:
+            df: 已加载的 DataFrame。
+            params: {
+                "feature_cols": [...],     ← 自变量列名列表
+                "target_col": "...",       ← 因变量列名
+            }
+        """
+        feature_cols = params.get("feature_cols", [])
+        target_col = params.get("target_col", "")
+
+        if not feature_cols:
+            raise ValueError("至少需要选择一个特征列")
+        if not target_col:
+            raise ValueError("需要指定目标列")
+
+        non_numeric_features = [c for c in feature_cols if not pd.api.types.is_numeric_dtype(df[c])]
+        if non_numeric_features:
+            raise ValueError(f"特征列包含非数值类型，无法回归：{non_numeric_features}")
+        if not pd.api.types.is_numeric_dtype(df[target_col]):
+            raise ValueError(f"目标列 '{target_col}' 不是数值类型，无法回归")
+
+        cols = feature_cols + [target_col]
+        data = df[cols].dropna()
+        if len(data) < 2:
+            raise ValueError("有效数据行数不足，无法回归")
+
+        X = data[feature_cols].values
+        y = data[target_col].values
+
+        model = LinearRegression()
+        model.fit(X, y)
+        y_pred = model.predict(X)
+
+        coefficients = [round(float(c), 6) for c in model.coef_]
+        intercept = round(float(model.intercept_), 6)
+        r2 = round(float(r2_score(y, y_pred)), 6)
+        mae = round(float(mean_absolute_error(y, y_pred)), 6)
+        rmse = round(float(np.sqrt(mean_squared_error(y, y_pred))), 6)
+
+        return {
+            "coefficients": coefficients,
+            "intercept": intercept,
+            "r_squared": r2,
+            "r2_score": r2,
+            "slope": coefficients[0] if len(coefficients) == 1 else None,
+            "mae": mae,
+            "rmse": rmse,
+            "x_values": data[feature_cols[0]].tolist() if len(feature_cols) == 1 else None,
+            "y_values": data[target_col].tolist(),
+            "y_predicted": [round(v, 4) for v in y_pred.tolist()],
+            "feature_cols": feature_cols,
+            "target_col": target_col,
+        }
+
+    def _polynomial_regression_analysis(self, df: pd.DataFrame, params: dict) -> dict:
+        """
+        多项式回归内部实现。
+
+        Args:
+            df: 已加载的 DataFrame。
+            params: {
+                "feature_col": "...",      ← 自变量列名
+                "target_col": "...",       ← 因变量列名
+                "degree": 2,               ← 可选，默认 2
+            }
+        """
+        feature_col = params.get("feature_col", "")
+        target_col = params.get("target_col", "")
+        degree = params.get("degree", 2)
+
+        if not feature_col:
+            raise ValueError("需要指定特征列 feature_col")
+        if not target_col:
+            raise ValueError("需要指定目标列 target_col")
+        if not (2 <= degree <= 5):
+            raise ValueError("多项式阶数应在 2~5 之间")
+
+        if not pd.api.types.is_numeric_dtype(df[feature_col]):
+            raise ValueError(f"特征列 '{feature_col}' 不是数值类型，无法回归")
+        if not pd.api.types.is_numeric_dtype(df[target_col]):
+            raise ValueError(f"目标列 '{target_col}' 不是数值类型，无法回归")
+
+        data = df[[feature_col, target_col]].dropna()
+        if len(data) < degree + 1:
+            raise ValueError(f"有效数据行数（{len(data)}）不足以拟合 {degree} 阶多项式")
+
+        X = data[[feature_col]].values
+        y = data[target_col].values
+
+        model = make_pipeline(
+            PolynomialFeatures(degree=degree, include_bias=False),
+            LinearRegression(),
+        )
+        model.fit(X, y)
+        y_pred = model.predict(X)
+
+        lr_step = model.named_steps["linearregression"]
+        coefficients = [round(float(c), 6) for c in lr_step.coef_]
+        intercept = round(float(lr_step.intercept_), 6)
+        r2 = round(float(r2_score(y, y_pred)), 6)
+
+        return {
+            "degree": degree,
+            "coefficients": coefficients,
+            "intercept": intercept,
+            "r2_score": r2,
+            "r_squared": r2,
+            "mae": round(float(mean_absolute_error(y, y_pred)), 6),
+            "rmse": round(float(np.sqrt(mean_squared_error(y, y_pred))), 6),
+            "x_values": data[feature_col].tolist(),
+            "y_values": data[target_col].tolist(),
+            "y_predicted": [round(v, 4) for v in y_pred.tolist()],
+            "feature_col": feature_col,
+            "target_col": target_col,
+        }
+
+    def _compare_clustering_analysis(self, df: pd.DataFrame, params: dict) -> dict:
+        """
+        聚类对比内部实现。
+        params 直接透传给 kmeans/dbscan 独立方法（参数一致）。
         """
         results = {}
         errors = {}
 
         try:
-            results["kmeans"] = self.kmeans(dataset_ref, columns, n_clusters)
+            results["kmeans"] = self._kmeans_analysis(df, params)
         except Exception as e:
             errors["kmeans"] = str(e)
 
         try:
-            results["dbscan"] = self.dbscan(dataset_ref, columns, eps, min_samples)
+            results["dbscan"] = self._dbscan_analysis(df, params)
         except Exception as e:
             errors["dbscan"] = str(e)
 
@@ -220,153 +376,37 @@ class AnalyzeService:
             if algo_key not in errors:
                 summary.append(row)
 
-        return {
-            "results": results,
-            "summary": summary,
-            "errors": errors,
-        }
+        return {"results": results, "summary": summary, "errors": errors}
 
-    # ─────────────────────────────────────────────
-    #  回归模块
-    # ─────────────────────────────────────────────
-
-    def linear_regression(
-        self,
-        dataset_ref: DatasetRef,
-        x_cols: list,
-        y_col: str,
-    ) -> dict:
+    def _compare_regression_analysis(self, df: pd.DataFrame, params: dict) -> dict:
         """
-        线性回归（支持多特征列，含 MAE、RMSE 误差指标）。
+        回归对比内部实现。
 
-        :param dataset_ref: 数据集引用
-        :param x_cols: 自变量列名列表
-        :param y_col: 因变量列名
+        线性模型使用 feature_cols 全部特征列。
+        多项式回归使用 feature_cols[0] + degree。
         """
-        df = self._load_data(dataset_ref)
+        feature_cols = params.get("feature_cols", [])
+        target_col = params.get("target_col", "")
+        degree = params.get("degree", 2)
 
-        if not x_cols:
-            raise ValueError("至少需要选择一个 X 列")
+        if not feature_cols:
+            raise ValueError("至少需要选择一个特征列")
+        if not target_col:
+            raise ValueError("需要指定目标列")
 
-        data = df[x_cols + [y_col]].dropna()
-        if len(data) < 2:
-            raise ValueError("有效数据行数不足，无法回归")
+        non_numeric_features = [c for c in feature_cols if not pd.api.types.is_numeric_dtype(df[c])]
+        if non_numeric_features:
+            raise ValueError(f"特征列包含非数值类型，无法回归对比：{non_numeric_features}")
+        if not pd.api.types.is_numeric_dtype(df[target_col]):
+            raise ValueError(f"目标列 '{target_col}' 不是数值类型，无法回归对比")
 
-        X = data[x_cols].values
-        y = data[y_col].values
-
-        model = LinearRegression()
-        model.fit(X, y)
-        y_pred = model.predict(X)
-
-        coefficients = [round(float(c), 6) for c in model.coef_]
-        intercept = round(float(model.intercept_), 6)
-        r2 = round(float(r2_score(y, y_pred)), 6)
-        mae = round(float(mean_absolute_error(y, y_pred)), 6)
-        rmse = round(float(np.sqrt(mean_squared_error(y, y_pred))), 6)
-
-        return {
-            "coefficients": coefficients,
-            "intercept": intercept,
-            "r_squared": r2,
-            "r2_score": r2,
-            "slope": coefficients[0] if len(coefficients) == 1 else None,
-            "mae": mae,
-            "rmse": rmse,
-            "x_values": data[x_cols[0]].tolist() if len(x_cols) == 1 else None,
-            "y_values": data[y_col].tolist(),
-            "y_predicted": [round(v, 4) for v in y_pred.tolist()],
-            "x_cols": x_cols,
-            "x_col": x_cols[0] if len(x_cols) == 1 else None,
-            "y_col": y_col,
-        }
-
-    def polynomial_regression(
-        self,
-        dataset_ref: DatasetRef,
-        x_col: str,
-        y_col: str,
-        degree: int = 2,
-    ) -> dict:
-        """
-        多项式回归（单特征，支持 2~5 阶）。
-
-        include_bias=False 避免 PolynomialFeatures 插入的常数列与
-        LinearRegression 自带的 intercept_ 重叠。
-
-        :param dataset_ref: 数据集引用
-        :param x_col: 自变量列名
-        :param y_col: 因变量列名
-        :param degree: 多项式阶数（2~5）
-        """
-        df = self._load_data(dataset_ref)
-
-        if not (2 <= degree <= 5):
-            raise ValueError("多项式阶数应在 2~5 之间")
-
-        data = df[[x_col, y_col]].dropna()
-        if len(data) < degree + 1:
-            raise ValueError(f"有效数据行数（{len(data)}）不足以拟合 {degree} 阶多项式")
-
-        X = data[[x_col]].values
-        y = data[y_col].values
-
-        model = make_pipeline(
-            PolynomialFeatures(degree=degree, include_bias=False),
-            LinearRegression(),
-        )
-        model.fit(X, y)
-        y_pred = model.predict(X)
-
-        lr_step = model.named_steps["linearregression"]
-        coefficients = [round(float(c), 6) for c in lr_step.coef_]
-        intercept = round(float(lr_step.intercept_), 6)
-        r2 = round(float(r2_score(y, y_pred)), 6)
-
-        return {
-            "degree": degree,
-            "coefficients": coefficients,
-            "intercept": intercept,
-            "r2_score": r2,
-            "r_squared": r2,
-            "mae": round(float(mean_absolute_error(y, y_pred)), 6),
-            "rmse": round(float(np.sqrt(mean_squared_error(y, y_pred))), 6),
-            "x_values": data[x_col].tolist(),
-            "y_values": data[y_col].tolist(),
-            "y_predicted": [round(v, 4) for v in y_pred.tolist()],
-            "x_col": x_col,
-            "y_col": y_col,
-        }
-
-    def compare_regression(
-        self,
-        dataset_ref: DatasetRef,
-        x_cols: list,
-        y_col: str,
-        degree: int = 2,
-    ) -> dict:
-        """
-        回归多算法对比：线性回归 vs Ridge vs Lasso vs 多项式回归。
-
-        线性模型使用全部特征列，多项式回归使用 x_cols[0]（单变量展开）。
-
-        :param dataset_ref: 数据集引用
-        :param x_cols: 自变量列名列表
-        :param y_col: 因变量列名
-        :param degree: 多项式回归阶数
-        :return: 各算法结果 + 统一 summary 对比表
-        """
-        df = self._load_data(dataset_ref)
-
-        if not x_cols:
-            raise ValueError("至少需要选择一个 X 列")
-
-        data = df[x_cols + [y_col]].dropna()
+        cols = feature_cols + [target_col]
+        data = df[cols].dropna()
         if len(data) < 4:
             raise ValueError("有效数据行数不足，无法进行算法对比")
 
-        X = data[x_cols].values
-        y = data[y_col].values
+        X = data[feature_cols].values
+        y = data[target_col].values
 
         linear_algos = {
             "线性回归": LinearRegression(),
@@ -392,11 +432,14 @@ class AnalyzeService:
             }
             summary.append({"算法": name, "R² ↑": r2, "MAE ↓": mae, "RMSE ↓": rmse, "最优": ""})
 
-        # 多项式回归：仅使用 x_cols[0]（单变量多项式展开）
-        poly_x = x_cols[0]
-        poly_name = f"多项式回归（{degree} 阶，基于 {poly_x}）"
+        poly_feature = feature_cols[0]
+        poly_name = f"多项式回归（{degree} 阶，基于 {poly_feature}）"
         try:
-            poly_result = self.polynomial_regression(dataset_ref, poly_x, y_col, degree)
+            poly_result = self._polynomial_regression_analysis(df, {
+                "feature_col": poly_feature,
+                "target_col": target_col,
+                "degree": degree,
+            })
             results[poly_name] = poly_result
             summary.append({
                 "算法": poly_name,
@@ -415,7 +458,6 @@ class AnalyzeService:
                 "最优": "",
             })
 
-        # 按 R² 降序标注最优算法
         valid_rows = [row for row in summary if isinstance(row.get("R² ↑"), float)]
         if valid_rows:
             best_name = max(valid_rows, key=lambda r: r["R² ↑"])["算法"]
@@ -425,9 +467,115 @@ class AnalyzeService:
         return {
             "results": results,
             "summary": summary,
-            "x_values": data[x_cols[0]].tolist(),
-            "y_values": data[y_col].tolist(),
-            "x_cols": x_cols,
-            "x_col": x_cols[0],
-            "y_col": y_col,
+            "x_values": data[feature_cols[0]].tolist(),
+            "y_values": data[target_col].tolist(),
+            "feature_cols": feature_cols,
+            "target_col": target_col,
         }
+
+    # ═══════════════════════════════════════════════
+    #  公有独立方法（参数展开、类型安全、默认值友好）
+    #  每个方法：加载数据 → 委托给 _*_analysis 内部方法
+    # ═══════════════════════════════════════════════
+
+    def kmeans(
+        self,
+        dataset_ref: DatasetRef,
+        columns: list | None = None,
+        n_clusters: int = 3,
+    ) -> dict:
+        """
+        K-Means 聚类（参数展开的便利接口）。
+
+        不传 columns 时自动使用全部数值列。
+        """
+        df = self._load_data(dataset_ref)
+        return self._kmeans_analysis(df, {
+            "columns": columns,
+            "n_clusters": n_clusters,
+        })
+
+    def dbscan(
+        self,
+        dataset_ref: DatasetRef,
+        columns: list | None = None,
+        eps: float = 0.5,
+        min_samples: int = 5,
+    ) -> dict:
+        """
+        DBSCAN 密度聚类（参数展开的便利接口）。
+        """
+        df = self._load_data(dataset_ref)
+        return self._dbscan_analysis(df, {
+            "columns": columns,
+            "eps": eps,
+            "min_samples": min_samples,
+        })
+
+    def linear_regression(
+        self,
+        dataset_ref: DatasetRef,
+        feature_cols: list,
+        target_col: str,
+    ) -> dict:
+        """
+        线性回归（参数展开的便利接口）。
+        """
+        df = self._load_data(dataset_ref)
+        return self._linear_regression_analysis(df, {
+            "feature_cols": feature_cols,
+            "target_col": target_col,
+        })
+
+    def polynomial_regression(
+        self,
+        dataset_ref: DatasetRef,
+        feature_col: str,
+        target_col: str,
+        degree: int = 2,
+    ) -> dict:
+        """
+        多项式回归（参数展开的便利接口）。
+        """
+        df = self._load_data(dataset_ref)
+        return self._polynomial_regression_analysis(df, {
+            "feature_col": feature_col,
+            "target_col": target_col,
+            "degree": degree,
+        })
+
+    def compare_clustering(
+        self,
+        dataset_ref: DatasetRef,
+        columns: list | None = None,
+        n_clusters: int = 3,
+        eps: float = 0.5,
+        min_samples: int = 5,
+    ) -> dict:
+        """
+        聚类多算法对比：K-Means vs DBSCAN。
+        """
+        df = self._load_data(dataset_ref)
+        return self._compare_clustering_analysis(df, {
+            "columns": columns,
+            "n_clusters": n_clusters,
+            "eps": eps,
+            "min_samples": min_samples,
+        })
+
+    def compare_regression(
+        self,
+        dataset_ref: DatasetRef,
+        feature_cols: list,
+        target_col: str,
+        degree: int = 2,
+    ) -> dict:
+        """
+        回归多算法对比：线性 / Ridge / Lasso / 多项式。
+        """
+        df = self._load_data(dataset_ref)
+        return self._compare_regression_analysis(df, {
+            "feature_cols": feature_cols,
+            "target_col": target_col,
+            "degree": degree,
+        })

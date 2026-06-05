@@ -12,6 +12,7 @@ from typing import Any
 
 import os
 
+import numpy as np
 import pandas as pd
 
 from config import ALLOWED_EXTENSIONS
@@ -87,7 +88,7 @@ class DataService:
         # 3. 构造预览信息
         # 【负责人：】数据管理模块开发人员
         # ================================================================
-        preview_records = df.head(5).to_dict('records')
+        preview_records = df.head(10).to_dict('records')
         preview_data = []
         for record in preview_records:
             row = []
@@ -103,9 +104,45 @@ class DataService:
             "preview": preview_data,
             "shape": list(df.shape),
             "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+            "column_stats": self._compute_column_stats(df),
         }
 
         return dataset_ref, preview
+
+    def _compute_column_stats(self, df: pd.DataFrame) -> dict:
+        """
+        计算每列的缺失值和异常值统计，供前端清洗面板使用。
+
+        Returns:
+            {"列名": {"missing": int, "missing_pct": float, "outliers": int}, ...}
+        """
+        stats = {}
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        total_rows = len(df)
+
+        for col in df.columns:
+            col_stat = {}
+            # 缺失值统计
+            missing = int(df[col].isna().sum())
+            col_stat["missing"] = missing
+            col_stat["missing_pct"] = round(missing / total_rows * 100, 1) if total_rows > 0 else 0
+
+            # 异常值统计（仅数值列）
+            col_stat["outliers"] = 0
+            if col in numeric_cols and missing < total_rows:
+                valid = df[col].dropna()
+                if len(valid) > 0:
+                    q1 = valid.quantile(0.25)
+                    q3 = valid.quantile(0.75)
+                    iqr = q3 - q1
+                    lower = q1 - 1.5 * iqr
+                    upper = q3 + 1.5 * iqr
+                    col_stat["outliers"] = int(((valid < lower) | (valid > upper)).sum())
+
+            col_stat["is_numeric"] = col in numeric_cols
+            stats[col] = col_stat
+
+        return stats
 
     def export_data(
         self, dataset_ref: DatasetRef, format: str = "csv"

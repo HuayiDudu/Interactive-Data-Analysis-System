@@ -299,6 +299,18 @@ class VisualizeService:
         return {"plotly_json": fig.to_json()}
 
     def _hex_to_rgb(self, hex_color: str) -> str:
-        """将十六进制颜色转换为 RGB 字符串"""
+        """将颜色（hex 或 rgba）转换为逗号分隔的 RGB 字符串"""
+        if not isinstance(hex_color, str):
+            return "0, 212, 255"  # fallback: cyan
+        hex_color = hex_color.strip()
+        # 处理 rgba(r,g,b,a) 或 rgb(r,g,b)
+        if hex_color.startswith("rgba(") or hex_color.startswith("rgb("):
+            start = hex_color.index("(") + 1
+            end = hex_color.index(")")
+            parts = hex_color[start:end].split(",")
+            return f"{parts[0].strip()}, {parts[1].strip()}, {parts[2].strip()}"
+        # 处理 #RRGGBB
         hex_color = hex_color.lstrip("#")
+        if len(hex_color) < 6:
+            return "0, 212, 255"  # fallback
         return f"{int(hex_color[0:2], 16)}, {int(hex_color[2:4], 16)}, {int(hex_color[4:6], 16)}"

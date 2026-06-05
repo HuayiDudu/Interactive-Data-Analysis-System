@@ -882,6 +882,32 @@ body {
 /* ================================================================
    数据表格
    ================================================================ */
+/* ================================================================
+   预览提示条（表格上方）
+   ================================================================ */
+.preview-hint {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    background: rgba(0, 212, 255, 0.06);
+    border: 1px solid rgba(0, 212, 255, 0.18);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.84rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.5;
+}
+
+.preview-hint strong {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.preview-hint svg {
+    color: var(--accent-soft);
+}
+
 .table-scroll {
     max-height: calc(100vh - 220px);
     overflow: auto;
@@ -1011,6 +1037,58 @@ body {
     font-size: 0.82rem;
     color: var(--accent);
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.col-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.col-badge-ok {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.col-badge-warn {
+    color: #f5a623;
+    background: rgba(245, 166, 35, 0.10);
+    border: 1px solid rgba(245, 166, 35, 0.20);
+}
+
+.col-badge-err {
+    color: #f43f5e;
+    background: rgba(244, 63, 94, 0.10);
+    border: 1px solid rgba(244, 63, 94, 0.20);
+}
+
+.col-badge-done {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.10);
+    border: 1px solid rgba(16, 185, 129, 0.20);
+}
+
+.col-badge-none {
+    color: rgba(148, 163, 184, 0.55);
+    background: rgba(148, 163, 184, 0.05);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.outlier-result {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
 }
 
 /* ================================================================
@@ -1549,9 +1627,63 @@ body {
     margin: 0;
     white-space: pre-wrap;
     word-break: break-all;
-    line-height: 1.65;
-    max-height: 320px;
-    overflow-y: auto;
+}
+
+/* ================================================================
+   分析结果解释栏
+   ================================================================ */
+.analysis-explain {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    background: rgba(0, 212, 255, 0.04);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    border-radius: var(--radius-sm);
+}
+
+.analysis-explain svg {
+    color: var(--accent-soft);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.analysis-explain span {
+    font-family: var(--font-body);
+    font-size: 0.84rem;
+    color: rgba(255, 255, 255, 0.78);
+    line-height: 1.55;
+}
+
+.analysis-explain strong {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* 算法含义提示框 */
+.algo-desc {
+    display: none;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(0, 212, 255, 0.03);
+    border: 1px solid rgba(0, 212, 255, 0.10);
+    border-radius: var(--radius-sm);
+    width: 100%;
+}
+
+.algo-desc svg {
+    color: var(--accent-soft);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.algo-desc span {
+    font-family: var(--font-body);
+    font-size: 0.80rem;
+    color: rgba(255, 255, 255, 0.68);
+    line-height: 1.5;
 }
 
 .report-content::-webkit-scrollbar {

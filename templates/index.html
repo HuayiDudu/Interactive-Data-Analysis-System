@@ -180,6 +180,7 @@
                     </div>
                 </div>
                 <div class="view-body">
+                    <div id="preview-hint" class="preview-hint" style="display:none;"></div>
                     <div class="table-scroll">
                         <table id="preview-table" class="data-table">
                             <thead id="preview-header"></thead>
@@ -442,13 +443,39 @@
                             <label class="field-label" for="algorithm-type">算法</label>
                             <select id="algorithm-type" class="form-select-custom">
                                 <option value="kmeans">K-Means 聚类</option>
+                                <option value="dbscan">DBSCAN 聚类</option>
                                 <option value="linear_regression">线性回归</option>
+                                <option value="polynomial_regression">多项式回归</option>
+                                <option value="compare_clustering">聚类对比</option>
+                                <option value="compare_regression">回归对比</option>
                             </select>
                         </div>
+                        <!-- 算法含义提示 -->
+                        <div class="param-group" style="width:100%;">
+                            <div id="algo-desc" class="algo-desc"></div>
+                        </div>
+                        <!-- K-Means / 聚类对比共用 -->
                         <div id="kmeans-params" class="param-group">
                             <label class="field-label">聚类数 K: <span id="k-value-display">3</span></label>
                             <input type="range" id="k-slider" class="slider-custom" min="2" max="10" value="3" />
                         </div>
+                        <!-- DBSCAN / 聚类对比共用 -->
+                        <div id="dbscan-params" style="display:none;">
+                            <div class="param-bar">
+                                <div class="param-group">
+                                    <label class="field-label">邻域半径 eps: <span id="eps-display">0.5</span></label>
+                                    <input type="range" id="dbscan-eps" class="slider-custom" min="0.1" max="2.0"
+                                        step="0.1" value="0.5" />
+                                </div>
+                                <div class="param-group">
+                                    <label class="field-label">最小样本数 min_samples: <span
+                                            id="min-samples-display">5</span></label>
+                                    <input type="range" id="dbscan-min-samples" class="slider-custom" min="2" max="20"
+                                        value="5" />
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 线性回归 / 回归对比共用 -->
                         <div id="lr-params" style="display:none;">
                             <div class="lr-params-grid">
                                 <div class="param-group">
@@ -459,6 +486,21 @@
                                     <label class="field-label" for="lr-target-col">目标列</label>
                                     <select id="lr-target-col" class="form-select-custom"></select>
                                 </div>
+                            </div>
+                        </div>
+                        <!-- 多项式回归专用 -->
+                        <div id="poly-params" style="display:none;">
+                            <div class="param-group">
+                                <label class="field-label" for="poly-feature-col">特征列</label>
+                                <select id="poly-feature-col" class="form-select-custom"></select>
+                            </div>
+                            <div class="param-group">
+                                <label class="field-label" for="poly-target-col">目标列</label>
+                                <select id="poly-target-col" class="form-select-custom"></select>
+                            </div>
+                            <div class="param-group">
+                                <label class="field-label">多项式阶数: <span id="poly-degree-display">2</span></label>
+                                <input type="range" id="poly-degree" class="slider-custom" min="2" max="5" value="2" />
                             </div>
                         </div>
                         <div class="param-group param-btn">
@@ -522,6 +564,7 @@
     <script src="{{ url_for('static', filename='js/clean.js') }}"></script>
     <script src="{{ url_for('static', filename='js/plot.js') }}"></script>
     <script src="{{ url_for('static', filename='js/analyze.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/export.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 
